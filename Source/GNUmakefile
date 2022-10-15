@@ -39,6 +39,8 @@ LIBRARY_NAME = libgnustep-gui
 # The Objective-C source files to be compiled
 libgnustep-gui_C_FILES =
 
+libgnustep-gui_OBJCC_FILES = GSAutoLayoutEngine.mm
+
 # The Objective-C source files to be compiled
 libgnustep-gui_OBJC_FILES = Functions.m \
 NSAccessibility.m \
@@ -658,7 +660,8 @@ GSWindowDecorationView.h \
 GSXibElement.h \
 GSXibLoading.h \
 GSXibKeyedUnarchiver.h \
-GSHelpAttachment.h
+GSHelpAttachment.h \
+GSAutoLayoutEngine.h
 
 libgnustep-gui_HEADER_FILES = ${GUI_HEADERS}
 

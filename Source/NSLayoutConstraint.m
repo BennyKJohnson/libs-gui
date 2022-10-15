@@ -763,4 +763,9 @@ NSString const *needsUpdateConstraintsKey = @"NSConstraintBasedLayoutCoreMethods
   return needsUpdateConstraints;
 }
 
+-(void)layoutEngineDidChangeAlignmentRect
+{
+  [self.superview setNeedsLayout: YES];
+}
+
 @end

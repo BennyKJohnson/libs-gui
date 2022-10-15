@@ -63,6 +63,7 @@
 @class NSWindowController;
 @class NSCachedImageRep;
 @class NSViewController;
+@class GSAutoLayoutEngine;
 
 @class GSWindowDecorationView;
 
@@ -239,6 +240,8 @@ APPKIT_EXPORT NSSize NSTokenSize;
   id            _firstResponder;
   id            _futureFirstResponder;
   NSView        *_initialFirstResponder;
+  GSAutoLayoutEngine *_layoutEngine;
+
 PACKAGE_SCOPE
   id            _delegate;
 @protected
@@ -873,6 +876,8 @@ PACKAGE_SCOPE
 + (NSInteger)windowNumberAtPoint:(NSPoint)point
      belowWindowWithWindowNumber:(NSInteger)windowNumber;
 #endif
+
+- (GSAutoLayoutEngine*)_layoutEngine;
 
 @end
 

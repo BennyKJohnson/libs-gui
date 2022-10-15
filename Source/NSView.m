@@ -78,6 +78,7 @@
 #import "GSBindingHelpers.h"
 #import "GSGuiPrivate.h"
 #import "NSViewPrivate.h"
+#import "GSAutoLayoutEngine.h"
 
 /*
  * We need a fast array that can store objects without retain/release ...
@@ -5167,7 +5168,18 @@ static NSView* findByTag(NSView *view, NSInteger aTag, NSUInteger *level)
 
 - (void)layout
 {
-
+  if (!self.window) {
+    return;
+  }
+  GSAutoLayoutEngine *engine = [self.window _layoutEngine];
+  if (!engine) {
+    return;
+  }
+  
+  for (NSView *subView in self.subviews) {
+    NSRect calculatedViewFrame = [engine alignmentRectForView: subView];
+    [subView setFrame: calculatedViewFrame];
+  }
 }
 
 @end

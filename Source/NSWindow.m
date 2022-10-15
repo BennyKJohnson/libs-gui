@@ -5959,6 +5959,16 @@ current key view.<br />
   return 0;
 }
 
+- (GSAutoLayoutEngine*)_layoutEngine
+{
+  return _layoutEngine;
+}
+
+-(void)_initializeLayoutEngine
+{
+  _layoutEngine = [[GSAutoLayoutEngine alloc] init];
+}
+
 @end
 
 @implementation NSWindow (Toolbar)
