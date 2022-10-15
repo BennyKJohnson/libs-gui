@@ -613,7 +613,8 @@ NSUserInterfaceItemSearching.h \
 NSUserInterfaceItemIdentification.h \
 NSUserInterfaceValidation.h \
 DPSOperators.h \
-PSOperators.h 
+PSOperators.h \
+GSAutoLayoutEngine.h
 
 GUI_HEADERS = \
 GSVersion.h \
@@ -660,8 +661,7 @@ GSWindowDecorationView.h \
 GSXibElement.h \
 GSXibLoading.h \
 GSXibKeyedUnarchiver.h \
-GSHelpAttachment.h \
-GSAutoLayoutEngine.h
+GSHelpAttachment.h
 
 libgnustep-gui_HEADER_FILES = ${GUI_HEADERS}
 

@@ -5961,12 +5961,7 @@ current key view.<br />
 
 - (GSAutoLayoutEngine*)_layoutEngine
 {
-  return _layoutEngine;
-}
-
--(void)_initializeLayoutEngine
-{
-  _layoutEngine = [[GSAutoLayoutEngine alloc] init];
+  return [self._windowView _layoutEngine];
 }
 
 @end

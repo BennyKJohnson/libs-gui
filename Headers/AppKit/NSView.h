@@ -53,6 +53,7 @@
 @class NSScrollView;
 @class NSView;
 @class NSWindow;
+@class GSAutoLayoutEngine;
 
 typedef NSInteger NSTrackingRectTag;
 typedef NSInteger NSToolTipTag;
@@ -183,6 +184,7 @@ PACKAGE_SCOPE
   NSUInteger _autoresizingMask;
   NSFocusRingType _focusRingType;
   NSRect _autoresizingFrameError;
+  GSAutoLayoutEngine *_layoutEngine;
 }
 
 /*
@@ -647,6 +649,7 @@ Layout
 
 - (void)layoutSubtreeIfNeeded;
 - (void)layout;
+- (void)_initializeLayoutEngine;
 
 #if GS_HAS_DECLARED_PROPERTIES
 @property (nonatomic) BOOL needsLayout;
@@ -654,6 +657,9 @@ Layout
 -(BOOL)needsLayout;
 -(void)setNeedsLayout: (BOOL)needsLayout;
 #endif
+
+-(GSAutoLayoutEngine*)_layoutEngine;
+-(void)_setLayoutEngine: (GSAutoLayoutEngine*)engine;
 
 @end
 

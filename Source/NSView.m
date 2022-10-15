@@ -824,6 +824,8 @@ GSSetDragTypes(NSView* obj, NSArray *types)
       index += 1;
     }
 
+  [aView _setLayoutEngine: [self _layoutEngine]];
+
   [aView _viewWillMoveToWindow: _window];
   [aView _viewWillMoveToSuperview: self];
   [aView setNextResponder: self];
@@ -5180,6 +5182,24 @@ static NSView* findByTag(NSView *view, NSInteger aTag, NSUInteger *level)
     NSRect calculatedViewFrame = [engine alignmentRectForView: subView];
     [subView setFrame: calculatedViewFrame];
   }
+}
+
+- (void)_setLayoutEngine: (GSAutoLayoutEngine*)engine
+{
+  _layoutEngine = engine;
+  for (NSView *subView in self.subviews) {
+    [subView _setLayoutEngine: engine];
+  }
+}
+
+- (GSAutoLayoutEngine*)layoutEngine
+{
+  return _layoutEngine;
+}
+
+-(void)_initializeLayoutEngine
+{
+  _layoutEngine = [[GSAutoLayoutEngine alloc] init];
 }
 
 @end
