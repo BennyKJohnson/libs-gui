@@ -43,6 +43,7 @@ typedef NSUInteger GSLayoutAttribute;
     NSMutableArray *trackedViews;
     NSMutableDictionary *viewIndexByViewHash;
     NSMutableDictionary *viewAlignmentRectByViewIndex;
+    NSMutableDictionary *constraintsByViewIndex;
     int viewCounter;
 }
 
@@ -61,7 +62,8 @@ typedef NSUInteger GSLayoutAttribute;
         trackedViews = [NSMutableArray array];
         viewAlignmentRectByViewIndex = [NSMutableDictionary dictionary];
         viewIndexByViewHash = [NSMutableDictionary dictionary];
-
+        constraintsByViewIndex = [NSMutableDictionary dictionary];
+        
         NSArray *layoutDynamicAttributes = [keypathByLayoutDynamicAttribute allKeys];
         layoutDynamicAttributeByKeypath = [NSDictionary dictionaryWithObjects:layoutDynamicAttributes forKeys:[keypathByLayoutDynamicAttribute allValues]];
     }
@@ -252,6 +254,7 @@ typedef NSUInteger GSLayoutAttribute;
 -(void)addConstraint:(NSLayoutConstraint*)constraint
 {
     [self addSupportingInternalConstraintsToView:[constraint firstItem] forAttribute:[constraint firstAttribute]];
+    
     if ([constraint secondItem]) {
         [self addSupportingInternalConstraintsToView:[constraint secondItem] forAttribute:[constraint secondAttribute]];
     }
@@ -265,8 +268,30 @@ typedef NSUInteger GSLayoutAttribute;
     } catch (std::exception& e) {
         NSLog(@"Error adding an error constraint");
     }
+
+    [self addConstraintAgainstViewConstraintsArray: constraint];
     
     [self updateAlignmentRectsForTrackedViews];
+}
+
+-(void) addConstraintAgainstViewConstraintsArray: (NSLayoutConstraint*)constraint
+{
+    NSNumber *firstItemViewIndex = [self indexForView: [constraint firstItem]];
+    NSMutableArray *constraintsForView = constraintsByViewIndex[firstItemViewIndex];
+    if (!constraintsForView) {
+        constraintsForView = [NSMutableArray array];
+        constraintsByViewIndex[firstItemViewIndex] = constraintsForView;
+    }
+    [constraintsForView addObject: constraint];
+}
+
+-(void) removeConstraintAgainstViewConstraintsArray: (NSLayoutConstraint*)constraint
+{
+     NSNumber *firstItemViewIndex = [self indexForView: [constraint firstItem]];
+     NSMutableArray *constraintsForView = constraintsByViewIndex[firstItemViewIndex];
+
+     NSUInteger indexOfConstraint = [constraintsForView indexOfObject: constraint];
+     [constraintsForView removeObjectAtIndex: indexOfConstraint];
 }
 
 -(void)addSupportingInternalConstraintsToView: (NSView*)view forAttribute: (NSLayoutAttribute)attribute
@@ -704,10 +729,12 @@ typedef NSUInteger GSLayoutAttribute;
     if (kConstraint == nil) {
         return;
     }
+
     [self removeObserverFromConstraint:constraint];
     [self removeSolverConstraint:kConstraint];
     
     [self updateAlignmentRectsForTrackedViews];
+    [self removeConstraintAgainstViewConstraintsArray: constraint];
 
     // TODO clean up internal constraints
     // TODO clean up observers of any dynamic attributes that relate to constraint
@@ -744,6 +771,16 @@ typedef NSUInteger GSLayoutAttribute;
     solver->removeConstraint(*constraint);
     solverConstraints.erase(std::remove(solverConstraints.begin(), solverConstraints.end(), constraint), solverConstraints.end());
     delete constraint;
+}
+
+-(NSArray*)constraintsForView: (NSView*)view
+{
+    NSNumber *viewIndex = [self indexForView: view];
+    if (!viewIndex) {
+        return [NSArray array];
+    }
+
+    return [constraintsByViewIndex[viewIndex] copy];
 }
 
 - (void)dealloc {

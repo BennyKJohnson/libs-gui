@@ -222,13 +222,33 @@ static NSMutableArray *activeConstraints = nil;
 
 + (void) _activateConstraint: (NSLayoutConstraint *)constraint
 {
-  // [activeConstraints addObject: constraint];
-  // activeConstraints = [[activeConstraints sortedArrayUsingSelector: @selector(compare:)] mutableCopy];
+  if (![constraint secondItem]) {
+    [[constraint firstItem] addConstraint: constraint];
+  } else {
+    NSView *commonAncestor = [NSLayoutConstraint _findClosestCommonAncestorForConstraint: constraint];
+    [commonAncestor addConstraint: constraint];
+  }
+}
+
++ (NSView*)_findClosestCommonAncestorForConstraint: (NSLayoutConstraint*)constraint
+{
+  NSMutableArray *parents = [NSMutableArray array];
+  NSView *currentView = [constraint firstItem];
+  NSView *secondView = [constraint secondItem];
+
+  while (secondView) {
+    if ([secondView isDescendantOf: currentView]) {
+      return currentView;
+    }
+
+    currentView = currentView.superview;
+  }
 }
 
 + (void) _removeConstraint: (NSLayoutConstraint *)constraint
 {
-  [activeConstraints removeObject: constraint];
+  NSView *commonAncestor = [NSLayoutConstraint _findClosestCommonAncestorForConstraint: constraint];
+  [commonAncestor removeConstraint: constraint];
 }
 
 + (NSArray *) constraintsWithVisualFormat: (NSString *)fmt 
@@ -261,7 +281,7 @@ static NSMutableArray *activeConstraints = nil;
       _constant = constant;
       _priority = priority;
       
-      [NSLayoutConstraint _activateConstraint: self];
+      // [NSLayoutConstraint _activateConstraint: self];
     }
   return self;
 }
@@ -565,7 +585,6 @@ static NSMutableArray *activeConstraints = nil;
 
 - (void) dealloc
 {
-  [NSLayoutConstraint _removeConstraint: self];
   [super dealloc];
 }
 
@@ -766,6 +785,52 @@ NSString const *needsUpdateConstraintsKey = @"NSConstraintBasedLayoutCoreMethods
 -(void)layoutEngineDidChangeAlignmentRect
 {
   [self.superview setNeedsLayout: YES];
+}
+
+@end
+
+@implementation NSView (NSConstraintBasedLayoutInstallingConstraints)
+
+- (void)addConstraint:(NSLayoutConstraint *)constraint
+{
+  if (![self _layoutEngine]) {
+    return;
+  }
+
+  [[self _layoutEngine] addConstraint: constraint];
+}
+
+- (void)addConstraints:(NSArray*)constraints
+{
+  for (NSLayoutConstraint *constraint in constraints) {
+    [self addConstraint: constraint];
+  }
+}
+
+- (void)removeConstraint:(NSLayoutConstraint *)constraint
+{
+  if (![self _layoutEngine]) {
+    return;
+  }
+
+  [[self _layoutEngine] removeConstraint: constraint];
+}
+
+- (void)removeConstraints: (NSArray*)constraints
+{
+  for (NSLayoutConstraint *constraint in constraints) {
+    [self removeConstraint: constraint];
+  }
+}
+
+- (NSArray*)constraints
+{
+  GSAutoLayoutEngine *engine = [self _layoutEngine];
+  if (!engine) {
+    return [NSArray array];
+  }
+
+  return [engine constraintsForView: self];
 }
 
 @end

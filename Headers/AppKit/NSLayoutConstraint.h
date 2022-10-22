@@ -207,6 +207,20 @@ typedef struct GSIntrinsicContentSizePriority {
 
 @end
 
+@interface NSView (NSConstraintBasedLayoutInstallingConstraints)
+
+- (void)addConstraint:(NSLayoutConstraint *)constraint;
+
+- (void)addConstraints:(NSArray*)constraints;
+
+- (void)removeConstraint:(NSLayoutConstraint *)constraint;
+
+- (void)removeConstraints:(NSArray*)constraints;
+
+- (NSArray*)constraints;
+
+@end
+
 #if	defined(__cplusplus)
 }
 #endif

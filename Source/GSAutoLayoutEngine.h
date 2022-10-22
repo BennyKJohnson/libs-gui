@@ -21,6 +21,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 -(NSRect)alignmentRectForView: (NSView*)view;
 
+-(NSArray*)constraintsForView: (NSView*)view;
+
 -(void)debugSolver;
 
 @end
