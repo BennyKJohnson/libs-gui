@@ -26,8 +26,10 @@ enum {
     GSLayoutAttributeLastBaseline,
     GSLayoutAttributeBaseline = GSLayoutAttributeLastBaseline,
     GSLayoutAttributeFirstBaseline,
-    GSLayoutAttriuteMinX,
-    GSLayoutAttributeMinY,
+    GSLayoutAttriuteMinX = 32,
+    GSLayoutAttributeMinY = 33,
+    GSLayoutAttributeMaxX = 36,
+    GSLayoutAttributeMaxY = 37
 };
 typedef NSUInteger GSLayoutAttribute;
 
@@ -617,6 +619,10 @@ typedef NSUInteger GSLayoutAttribute;
             return @"minX";
         case GSLayoutAttributeMinY:
             return @"minY";
+        case GSLayoutAttributeMaxX:
+            return @"maxX";
+        case GSLayoutAttributeMaxY:
+            return @"maxY";
         default:
             NSException* myException = [NSException
                     exceptionWithName:@"Not handled"

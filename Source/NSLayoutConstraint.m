@@ -32,6 +32,7 @@
 #import "AppKit/NSLayoutConstraint.h"
 #import "AppKit/NSWindow.h"
 #import "AppKit/NSApplication.h"
+#import "AppKit/NSAutoresizingMaskLayoutConstraint.h"
 
 static NSMutableArray *activeConstraints = nil;
 // static NSNotificationCenter *nc = nil;
@@ -736,6 +737,31 @@ NSString const *compressionPrioritiesKey = @"NSConstraintBasedLayoutLayering.com
 
 @end
 
+@implementation NSView (NSConstraintBasedCompatibility)
+
+NSString const *translatesAutoresizingMaskKey = @"NSConstraintBasedCompatibility.translatesAutoresizingMaskKey";
+
+-(void)setTranslatesAutoresizingMaskIntoConstraints: (BOOL)translate
+{
+  NSValue *value = [NSValue valueWithBytes:&translate objCType:@encode(BOOL)];
+  objc_setAssociatedObject(self, &translatesAutoresizingMaskKey, value, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
+-(BOOL) translatesAutoresizingMaskIntoConstraints
+{
+  NSValue *value = objc_getAssociatedObject(self, &translatesAutoresizingMaskKey);
+  if (value == nil) {
+    return YES;
+  }
+
+  BOOL translate;
+  [value getValue: &translate];
+
+  return translate;
+}
+
+@end
+
 @implementation NSView (NSConstraintBasedLayoutCoreMethods)
 
 NSString const *needsUpdateConstraintsKey = @"NSConstraintBasedLayoutCoreMethods.needsUpdateConstraintsKey";
@@ -752,6 +778,13 @@ NSString const *needsUpdateConstraintsKey = @"NSConstraintBasedLayoutCoreMethods
 
 - (void)updateConstraints
 {
+  if ([self translatesAutoresizingMaskIntoConstraints] && [self superview] != nil) {
+    NSArray *autoresizingConstraints = [NSAutoresizingMaskLayoutConstraint
+      constraintsWithAutoresizingMask: [self autoresizingMask]
+      subitem:self frame:[self frame] superitem:[self superview] bounds:[self bounds]];
+    
+    [self addConstraints: autoresizingConstraints];
+  }
   [self _setNeedsUpdateConstraints: NO];
 }
 

@@ -171,6 +171,12 @@ typedef struct GSIntrinsicContentSizePriority {
 
 @end
 
+@interface NSView (NSConstraintBasedCompatibility)
+
+@property BOOL translatesAutoresizingMaskIntoConstraints;
+
+@end
+
 @interface NSView (NSConstraintBasedLayoutLayering)
 
 @property (readonly) NSSize intrinsicContentSize;
