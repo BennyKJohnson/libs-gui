@@ -64,7 +64,7 @@
 @class NSCachedImageRep;
 @class NSViewController;
 @class GSAutoLayoutEngine;
-
+@class GSAutoLayoutContainer;
 @class GSWindowDecorationView;
 
 /*
@@ -241,6 +241,7 @@ APPKIT_EXPORT NSSize NSTokenSize;
   id            _futureFirstResponder;
   NSView        *_initialFirstResponder;
   GSAutoLayoutEngine *_layoutEngine;
+  GSAutoLayoutContainer *_autoLayoutContainer;
 
 PACKAGE_SCOPE
   id            _delegate;
@@ -982,6 +983,14 @@ willPositionSheet: (NSWindow *)sheet
 #if OS_API_VERSION(MAC_OS_X_VERSION_10_1, GS_API_LATEST)
 - (NSWindow *) attachedSheet;
 #endif
+@end
+
+@interface NSWindow (GNUstepAutoLayout)
+
+- (void)_setAutoLayoutContainer: (GSAutoLayoutContainer*)container;
+
+- (GSAutoLayoutContainer*)_autoLayoutContainer;
+
 @end
 
 /* Notifications */

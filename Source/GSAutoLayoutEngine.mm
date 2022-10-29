@@ -26,7 +26,7 @@ enum {
     GSLayoutAttributeLastBaseline,
     GSLayoutAttributeBaseline = GSLayoutAttributeLastBaseline,
     GSLayoutAttributeFirstBaseline,
-    GSLayoutAttriuteMinX = 32,
+    GSLayoutAttributeMinX = 32,
     GSLayoutAttributeMinY = 33,
     GSLayoutAttributeMaxX = 36,
     GSLayoutAttributeMaxY = 37
@@ -62,9 +62,16 @@ typedef NSUInteger GSLayoutAttribute;
         };
         
         trackedViews = [NSMutableArray array];
+        [trackedViews retain];
+
         viewAlignmentRectByViewIndex = [NSMutableDictionary dictionary];
+        [viewAlignmentRectByViewIndex retain];
+
         viewIndexByViewHash = [NSMutableDictionary dictionary];
+        [viewIndexByViewHash retain];
+
         constraintsByViewIndex = [NSMutableDictionary dictionary];
+        [constraintsByViewIndex retain];
         
         NSArray *layoutDynamicAttributes = [keypathByLayoutDynamicAttribute allKeys];
         layoutDynamicAttributeByKeypath = [NSDictionary dictionaryWithObjects:layoutDynamicAttributes forKeys:[keypathByLayoutDynamicAttribute allValues]];
@@ -74,7 +81,7 @@ typedef NSUInteger GSLayoutAttribute;
 
 -(void) addInternalConstraintsToView: (NSView*)view
 {
-    kiwi::Variable *viewMinXVariable = [self variableForView:view andAttribute:GSLayoutAttriuteMinX];
+    kiwi::Variable *viewMinXVariable = [self variableForView:view andAttribute:GSLayoutAttributeMinX];
     kiwi::Constraint *minXConstraint = new kiwi::Constraint { *viewMinXVariable == 0 };
     [self addSolverConstraint:minXConstraint];
 
@@ -116,7 +123,7 @@ typedef NSUInteger GSLayoutAttribute;
 
 -(NSRect)_solverAlignmentRectForView:(NSView *)view
 {
-    kiwi::Variable *minX = [self getExistingVariableForView:view withAttribute:GSLayoutAttriuteMinX];
+    kiwi::Variable *minX = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeMinX];
     kiwi::Variable *minY = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeMinY];
     kiwi::Variable *width = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeWidth];
     kiwi::Variable *height = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeHeight];
@@ -125,7 +132,7 @@ typedef NSUInteger GSLayoutAttribute;
 }
 
 -(BOOL)_solverCanSolveAlignmentRectForView: (NSView*)view {
-    kiwi::Variable *minX = [self getExistingVariableForView:view withAttribute:GSLayoutAttriuteMinX];
+    kiwi::Variable *minX = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeMinX];
     if (!minX) {
         return NO;
     }
@@ -332,47 +339,59 @@ typedef NSUInteger GSLayoutAttribute;
     kiwi::Variable *widthConstraintVariable = [self variableForView: view andAttribute: GSLayoutAttributeWidth];
     kiwi::Variable *leadingVariable = [self variableForView:view andAttribute:GSLayoutAttributeLeading];
     kiwi::Variable * trailingVariable = [self variableForView:view andAttribute:GSLayoutAttributeTrailing];
-    kiwi::Variable *minX = [self variableForView:view andAttribute:GSLayoutAttriuteMinX];
-    
+    kiwi::Variable *minX = [self variableForView:view andAttribute:GSLayoutAttributeMinX];
+    kiwi::Variable *maxX = [self variableForView:view andAttribute:GSLayoutAttributeMaxX];
+
     kiwi::Constraint *minXLeadingRelationshipConstraint = new kiwi::Constraint { *minX == *leadingVariable };
-    kiwi::Constraint *WidthRelationshipToLeadingAndTrailingConstraint = new kiwi::Constraint { *widthConstraintVariable == *trailingVariable - *leadingVariable };
+    kiwi::Constraint *maxXTrailingRelationshipConstraint = new kiwi::Constraint { *maxX == *trailingVariable };
+    kiwi::Constraint *widthRelationshipToMaxXAndMinXConstraint = new kiwi::Constraint { *widthConstraintVariable == *maxX - *minX };
     
-    [self addSolverConstraint:WidthRelationshipToLeadingAndTrailingConstraint];
+    [self addSolverConstraint:widthRelationshipToMaxXAndMinXConstraint];
     [self addSolverConstraint:minXLeadingRelationshipConstraint];
+    [self addSolverConstraint: maxXTrailingRelationshipConstraint];
 }
 
 -(void)addInternalWidthLeftRightConstraintForView: (NSView*)view
 {
     kiwi::Variable *widthConstraintVariable = [self variableForView: view andAttribute: GSLayoutAttributeWidth];
+
+    kiwi::Variable *minX = [self variableForView:view andAttribute:GSLayoutAttributeMinX];
+    kiwi::Variable *maxX = [self variableForView:view andAttribute:GSLayoutAttributeMaxX];
+    kiwi::Constraint *widthRelationshipToMaxXAndMinXConstraint = new kiwi::Constraint { *widthConstraintVariable == *maxX - *minX };
+
+
     kiwi::Variable *leftVariable = [self variableForView:view andAttribute:GSLayoutAttributeLeft];
     kiwi::Variable *rightVariable = [self variableForView:view andAttribute:GSLayoutAttributeRight];
-    kiwi::Variable *minX = [self variableForView:view andAttribute:GSLayoutAttriuteMinX];
-    
     kiwi::Constraint *minXLeadingRelationshipConstraint = new kiwi::Constraint { *minX == *leftVariable };
-    kiwi::Constraint *widthRelationshipToLeadingAndTrailingConstraint = new kiwi::Constraint { *widthConstraintVariable == *rightVariable - *leftVariable };
-    
-    [self addSolverConstraint:widthRelationshipToLeadingAndTrailingConstraint];
+    kiwi::Constraint *maxXRightRelationshipConstraint = new kiwi::Constraint { *maxX == *rightVariable };
+
+    [self addSolverConstraint:widthRelationshipToMaxXAndMinXConstraint];
     [self addSolverConstraint:minXLeadingRelationshipConstraint];
+    [self addSolverConstraint: maxXRightRelationshipConstraint];
 }
 
 -(void)addInternalHeightConstraintForView: (NSView*)view
 {
     kiwi::Variable *heightConstraintVariable = [self variableForView: view andAttribute: GSLayoutAttributeHeight];
-    kiwi::Variable *topVariable = [self variableForView:view andAttribute:GSLayoutAttributeTop];
-    kiwi::Variable *bottomVariable = [self variableForView:view andAttribute:GSLayoutAttributeBottom];
-    kiwi::Constraint *heightConstraint = new kiwi::Constraint { *heightConstraintVariable == *topVariable - *bottomVariable };
+    kiwi::Variable *minY = [self variableForView:view andAttribute:GSLayoutAttributeMinY];
+    kiwi::Variable *maxY = [self variableForView:view andAttribute:GSLayoutAttributeMaxY];
+    kiwi::Constraint *heightConstraint = new kiwi::Constraint { *heightConstraintVariable == *maxY - *minY };
     [self addSolverConstraint:heightConstraint];
 
-    kiwi::Variable *minY = [self variableForView:view andAttribute:GSLayoutAttributeMinY];
+    kiwi::Variable *topVariable = [self variableForView:view andAttribute:GSLayoutAttributeTop];
+    kiwi::Variable *bottomVariable = [self variableForView:view andAttribute:GSLayoutAttributeBottom];;
     kiwi::Constraint *minYBottomRelationshipConstraint = new kiwi::Constraint { *minY == *bottomVariable };
+    kiwi::Constraint *maxYTopRelationshipConstraint = new kiwi::Constraint { *maxY == *topVariable };
+
     [self addSolverConstraint:minYBottomRelationshipConstraint];
+    [self addSolverConstraint:maxYTopRelationshipConstraint];
 }
 
 -(void)addInternalCenterXConstraintsForView: (NSView*)view
 {
     kiwi::Variable *centerXVariable = [self variableForView:view andAttribute:GSLayoutAttributeCenterX];
     kiwi::Variable *width = [self variableForView:view andAttribute:GSLayoutAttributeWidth];
-    kiwi::Variable *minX = [self variableForView:view andAttribute:GSLayoutAttriuteMinX];
+    kiwi::Variable *minX = [self variableForView:view andAttribute:GSLayoutAttributeMinX];
     
     kiwi::Constraint *centerXConstraint = new kiwi::Constraint { *centerXVariable == *minX + (*width / 2) };
     [self addSolverConstraint:centerXConstraint];
@@ -487,7 +506,7 @@ typedef NSUInteger GSLayoutAttribute;
     kiwi::Constraint *newKConstraint = [self solverConstraintForConstraint:constraint];
     constraintsByAutoLayoutConstaintHash[[constraint hash]] = newKConstraint;
     [self addSolverConstraint:newKConstraint];
-    
+
     [self updateAlignmentRectsForTrackedViews];
 }
 
@@ -615,7 +634,7 @@ typedef NSUInteger GSLayoutAttribute;
             return @"baseline";
         case GSLayoutAttributeFirstBaseline:
             return @"firstBaseline";
-        case GSLayoutAttriuteMinX:
+        case GSLayoutAttributeMinX:
             return @"minX";
         case GSLayoutAttributeMinY:
             return @"minY";
@@ -790,6 +809,11 @@ typedef NSUInteger GSLayoutAttribute;
 }
 
 - (void)dealloc {
+    [trackedViews release];
+    [viewAlignmentRectByViewIndex release];
+    [viewIndexByViewHash release];
+    [constraintsByViewIndex release];
+
     delete solver;
     [self deallocSolverVariables];
     [self deallocSolverConstraints];

@@ -80,6 +80,7 @@
 #import "AppKit/NSWindow.h"
 #import "AppKit/NSWindowController.h"
 #import "AppKit/PSOperators.h"
+#import "AppKit/NSLayoutConstraint.h"
 
 #import "GNUstepGUI/GSTheme.h"
 #import "GNUstepGUI/GSTrackingRect.h"
@@ -188,6 +189,7 @@ static GSWindowAnimationDelegate *animationDelegate;
   if (_f.is_autodisplay && _f.views_need_display)
     {
       [self disableFlushWindow];
+      [self layoutIfNeeded];
       [self displayIfNeeded];
       [self enableFlushWindow];
       [self flushWindowIfNeeded];
@@ -4404,7 +4406,9 @@ checkCursorRectanglesExited(NSView *theView,  NSEvent *theEvent, NSPoint lastPoi
                     [self saveFrameUsingName: _autosaveName];
                   }
 
+                [self updateConstraintsForResize];
                 [self _processResizeEvent];
+
                 [nc postNotificationName: NSWindowDidResizeNotification
                                   object: self];
                 break;
@@ -4737,6 +4741,20 @@ checkCursorRectanglesExited(NSView *theView,  NSEvent *theEvent, NSPoint lastPoi
         // FIXME: Tablet events
         break;
     }
+}
+
+-(void)updateConstraintsForResize
+{
+  GSAutoLayoutContainer *constraintContainer = [self _autoLayoutContainer];
+  if (!constraintContainer) {
+    return;
+  }
+ 
+  NSLayoutConstraint *widthConstraint = [constraintContainer widthConstraint];
+  NSLayoutConstraint *heightConstraint = [constraintContainer heightConstraint];
+
+  [widthConstraint setConstant: self._windowView.frame.size.width];
+  [heightConstraint setConstant: self._windowView.frame.size.height];
 }
 
 - (BOOL) shouldBeTreatedAsInkEvent: (NSEvent *)theEvent
@@ -6159,6 +6177,20 @@ current key view.<br />
       [_inactive removeObject: window];
     }
 }
+@end
+
+@implementation NSWindow (GNUstepAutoLayout)
+
+- (void)_setAutoLayoutContainer: (GSAutoLayoutContainer*)container
+{
+  _autoLayoutContainer = container;
+}
+
+- (GSAutoLayoutContainer*)_autoLayoutContainer;
+{
+  return _autoLayoutContainer;
+}
+
 @end
 
 BOOL GSViewAcceptsDrag(NSView *v, id<NSDraggingInfo> dragInfo)

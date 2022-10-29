@@ -735,6 +735,28 @@ NSString const *compressionPrioritiesKey = @"NSConstraintBasedLayoutLayering.com
   [self.contentView updateConstraintsForSubtreeIfNeeded];
 }
 
+-(void)_bootstrapAutoLayout
+{
+  [[self.contentView superview] _initializeLayoutEngine];
+  NSArray *windowConstraints = [[self.contentView superview] constraints];
+ 
+  NSLayoutConstraint *widthConstraint;
+  NSLayoutConstraint *heightConstraint;
+
+  for (NSLayoutConstraint *constraint in windowConstraints) {
+    if ([constraint firstAttribute] == NSLayoutAttributeWidth && [constraint secondAttribute] == NSLayoutAttributeNotAnAttribute) {
+      widthConstraint = constraint;
+    } else if ([constraint firstAttribute] == NSLayoutAttributeHeight && [constraint secondAttribute] == NSLayoutAttributeNotAnAttribute) {
+      heightConstraint = constraint;
+    }
+  }
+
+  GSAutoLayoutContainer *container = [[GSAutoLayoutContainer alloc] init];
+  [container setWidthConstraint: widthConstraint];
+  [container setHeightConstraint: heightConstraint];
+  [self _setAutoLayoutContainer: container];
+}
+
 @end
 
 @implementation NSView (NSConstraintBasedCompatibility)
@@ -781,7 +803,7 @@ NSString const *needsUpdateConstraintsKey = @"NSConstraintBasedLayoutCoreMethods
   if ([self translatesAutoresizingMaskIntoConstraints] && [self superview] != nil) {
     NSArray *autoresizingConstraints = [NSAutoresizingMaskLayoutConstraint
       constraintsWithAutoresizingMask: [self autoresizingMask]
-      subitem:self frame:[self frame] superitem:[self superview] bounds:[self bounds]];
+    subitem:self frame:[self frame] superitem:[self superview] bounds:[[self superview] bounds]];
     
     [self addConstraints: autoresizingConstraints];
   }
@@ -827,7 +849,12 @@ NSString const *needsUpdateConstraintsKey = @"NSConstraintBasedLayoutCoreMethods
 - (void)addConstraint:(NSLayoutConstraint *)constraint
 {
   if (![self _layoutEngine]) {
-    return;
+    if ([self window]) {
+      [self.window _bootstrapAutoLayout];
+    } else {
+      NSLog(@"No layout engine found");
+      return;
+    }
   }
 
   [[self _layoutEngine] addConstraint: constraint];

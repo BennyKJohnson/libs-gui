@@ -197,6 +197,8 @@ typedef struct GSIntrinsicContentSizePriority {
 
 @interface NSWindow (NSConstraintBasedLayoutCoreMethods)
 
+-(void)_bootstrapAutoLayout;
+
 - (void)layoutIfNeeded;
 
 @end

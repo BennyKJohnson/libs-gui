@@ -80,6 +80,7 @@
 #import "NSViewPrivate.h"
 #import "GSAutoLayoutEngine.h"
 #import "AppKit/NSLayoutConstraint.h"
+#import "AppKit/NSAutoresizingMaskLayoutConstraint.h"
 
 /*
  * We need a fast array that can store objects without retain/release ...
@@ -5200,8 +5201,36 @@ static NSView* findByTag(NSView *view, NSInteger aTag, NSUInteger *level)
 
 -(void)_initializeLayoutEngine
 {
-  _layoutEngine = [[GSAutoLayoutEngine alloc] init];
-  [_layoutEngine addInternalConstraintsToView: self];
+  [self _setLayoutEngine: [[GSAutoLayoutEngine alloc] init]];
+  NSAutoresizingMaskLayoutConstraint *minXConstraint = [NSAutoresizingMaskLayoutConstraint
+    constraintWithItem:self attribute:32
+    relatedBy:NSLayoutRelationEqual
+    toItem:nil
+    attribute:NSLayoutAttributeNotAnAttribute
+    multiplier:1.0 constant:0];
+  
+  NSAutoresizingMaskLayoutConstraint *minYConstraint = [NSAutoresizingMaskLayoutConstraint
+    constraintWithItem:self attribute:33
+    relatedBy:NSLayoutRelationEqual
+    toItem:nil
+    attribute:NSLayoutAttributeNotAnAttribute
+    multiplier:1.0 constant:0];
+  
+  NSLayoutConstraint *widthConstraint = [NSLayoutConstraint
+    constraintWithItem:self attribute:NSLayoutAttributeWidth
+    relatedBy:NSLayoutRelationEqual
+    toItem:nil
+    attribute:NSLayoutAttributeNotAnAttribute
+    multiplier:1.0 constant:self.frame.size.width];
+
+  NSLayoutConstraint *heightConstraint = [NSLayoutConstraint
+    constraintWithItem:self attribute:NSLayoutAttributeHeight
+    relatedBy:NSLayoutRelationEqual
+    toItem:nil
+    attribute:NSLayoutAttributeNotAnAttribute
+    multiplier:1.0 constant:self.frame.size.height];
+  
+  [self addConstraints: @[minXConstraint, minYConstraint, widthConstraint, heightConstraint]];
 }
 
 @end
