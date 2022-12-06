@@ -1,9 +1,7 @@
-/* Definition of class NSPathComponentCell
-   Copyright (C) 2020 Free Software Foundation, Inc.
+/* Copyright (C) 2022 Free Software Foundation, Inc.
    
-   By: Gregory John Casamento
-   Date: Wed Apr 22 18:19:21 EDT 2020
-
+   By: Benjamin Johnson
+   Date: 11-11-2022
    This file is part of the GNUstep Library.
    
    This library is free software; you can redistribute it and/or
@@ -22,40 +20,28 @@
    Boston, MA 02110 USA.
 */
 
-#ifndef _NSPathComponentCell_h_GNUSTEP_GUI_INCLUDE
-#define _NSPathComponentCell_h_GNUSTEP_GUI_INCLUDE
+#import <Foundation/Foundation.h>
+#import "AppKit/NSView.h"
+#import "AppKit/NSLayoutConstraint.h"
 
-#import <AppKit/NSTextFieldCell.h>
-
-#if OS_API_VERSION(MAC_OS_X_VERSION_10_5, GS_API_LATEST)
-
-#if	defined(__cplusplus)
-extern "C" {
-#endif
-
-@class NSImage, NSURL;
-  
-APPKIT_EXPORT_CLASS
-@interface NSPathComponentCell : NSTextFieldCell
+@interface GSAutoLayoutVFLParser : NSObject
 {
-  NSImage *_image;
-  NSURL *_url;
-  BOOL _lastComponent;
+  NSDictionary *_views;
+  NSLayoutFormatOptions _options;
+  NSDictionary *_metrics;
+  NSScanner *_scanner;
+  NSMutableArray *_constraints;
+  NSMutableArray *_layoutFormatConstraints;
+  NSView *_view;
+  BOOL _createLeadingConstraintToSuperview;
+  BOOL _isVerticalOrientation;
 }
 
-- (NSImage *) image;
-- (void) setImage: (NSImage *)image;
+- (instancetype) initWithFormat:(NSString *)format
+                        options:(NSLayoutFormatOptions)options
+                        metrics:(NSDictionary *)metrics
+                          views:(NSDictionary *)views;
 
-- (NSURL *) URL;
-- (void) setURL: (NSURL *)url;
+- (NSArray *) parse;
 
 @end
-
-#if	defined(__cplusplus)
-}
-#endif
-
-#endif	/* GS_API_MACOSX */
-
-#endif	/* _NSPathComponentCell_h_GNUSTEP_GUI_INCLUDE */
-

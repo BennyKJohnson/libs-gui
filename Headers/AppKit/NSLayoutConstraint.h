@@ -110,6 +110,7 @@ typedef struct GSIntrinsicContentSizePriority {
   NSLayoutPriority vertical;
 } GSIntrinsicContentSizePriority;
 
+APPKIT_EXPORT_CLASS
 @interface NSLayoutConstraint : NSObject <NSCoding, NSCopying>
 {
   NSLayoutAnchor *_firstAnchor;
@@ -163,11 +164,14 @@ typedef struct GSIntrinsicContentSizePriority {
 
 - (NSLayoutAnchor *) secondAnchor;
 
--(void) setPriority: (NSLayoutPriority)priority;
-
 -(void)setConstant: (CGFloat)constant;
 
-- (NSLayoutPriority) priority;  
+#if GS_HAS_DECLARED_PROPERTIES
+@property NSLayoutPriority priority;
+#else
+- (NSLayoutPriority) priority;
+- (void) setPriority: (NSLayoutPriority)priority;
+#endif
 
 @end
 
