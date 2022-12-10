@@ -38,9 +38,12 @@ LIBRARY_NAME = libgnustep-gui
 
 # The Objective-C source files to be compiled
 libgnustep-gui_C_FILES =
+libgnustep-gui_OBJCFLAGS=-v
 
 libgnustep-gui_OBJCC_FILES = GSAutoLayoutEngine.mm
-
+libgnustep-gui_LIBRARIES_DEPEND_UPON += -lCassowaryKit
+ADDITIONAL_LIB_DIRS = -L/home/benjamin/CassowaryKit/cassowary/obj
+ADDITIONAL_INCLUDE_DIRS =  -I/home/benjamin/CassowaryKit/cassowary
 # The Objective-C source files to be compiled
 libgnustep-gui_OBJC_FILES = Functions.m \
 NSAccessibility.m \

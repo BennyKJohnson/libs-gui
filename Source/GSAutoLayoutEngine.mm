@@ -2,6 +2,8 @@
 #include "Kiwi/kiwi.h"
 #include <map>
 #include "AppKit/NSLayoutConstraint.h"
+#include "CSWSimplexSolver.h"
+#include "CSWConstraint.h"
 
 enum {
     GSLayoutViewAttributeBaselineOffsetFromBottom = 1,
@@ -35,10 +37,10 @@ typedef NSUInteger GSLayoutAttribute;
 
 @implementation GSAutoLayoutEngine
 {
-    kiwi::Solver *solver;
-    std::map<std::string, kiwi::Variable*> variablesByKey;
-    std::vector<kiwi::Constraint*> solverConstraints;
-    std::map<NSUInteger, kiwi::Constraint*> constraintsByAutoLayoutConstaintHash;
+    CSWSimplexSolver *solver;
+    NSMapTable *variablesByKey;
+    NSMutableArray *solverConstraints;
+    NSMapTable *constraintsByAutoLayoutConstaintHash;
     NSMutableArray *trackedVariables;
     NSDictionary *keypathByLayoutDynamicAttribute;
     NSDictionary *layoutDynamicAttributeByKeypath;
@@ -52,7 +54,7 @@ typedef NSUInteger GSLayoutAttribute;
 - (instancetype)init {
     if (self = [super init]) {
         viewCounter = 0;
-        solver = new kiwi::Solver();
+        solver = [[CSWSimplexSolver alloc] init];
         trackedVariables = [NSMutableArray array];
         keypathByLayoutDynamicAttribute = @{
             @(GSLayoutViewAttributeBaselineOffsetFromBottom): @"baselineOffsetFromBottom",
@@ -60,6 +62,13 @@ typedef NSUInteger GSLayoutAttribute;
             @(GSLayoutViewAttributeIntrinsicWidth): @"intrinsicContentSize.width",
             @(GSLayoutViewAttributeInstrinctHeight): @"intrinsicContentSize.height"
         };
+
+        variablesByKey = [NSMapTable strongToStrongObjectsMapTable];
+
+        constraintsByAutoLayoutConstaintHash = [NSMapTable strongToStrongObjectsMapTable];
+
+        solverConstraints = [NSMutableArray array];
+        [solverConstraints retain];
         
         trackedViews = [NSMutableArray array];
         [trackedViews retain];
@@ -81,12 +90,12 @@ typedef NSUInteger GSLayoutAttribute;
 
 -(void) addInternalConstraintsToView: (NSView*)view
 {
-    kiwi::Variable *viewMinXVariable = [self variableForView:view andAttribute:GSLayoutAttributeMinX];
-    kiwi::Constraint *minXConstraint = new kiwi::Constraint { *viewMinXVariable == 0 };
+    CSWVariable *viewMinXVariable = [self variableForView:view andAttribute:GSLayoutAttributeMinX];
+    CSWConstraint *minXConstraint = [CSWConstraint constraintWithLeftVariable: viewMinXVariable operator: CSWConstraintOperatorEqual rightConstant: 0];
     [self addSolverConstraint:minXConstraint];
 
-    kiwi::Variable *viewMinYVariable = [self variableForView:view andAttribute:GSLayoutAttributeMinY];
-    kiwi::Constraint *minYConstraint = new kiwi::Constraint { *viewMinYVariable == 0 };
+    CSWVariable *viewMinYVariable = [self variableForView:view andAttribute:GSLayoutAttributeMinY];
+    CSWConstraint *minYConstraint = [CSWConstraint constraintWithLeftVariable: viewMinYVariable operator: CSWConstraintOperatorEqual rightConstant: 0];
     [self addSolverConstraint:minYConstraint];
 }
 
@@ -101,21 +110,21 @@ typedef NSUInteger GSLayoutAttribute;
 -(void)resolveVariableForView: (NSView*)view attribute: (GSLayoutViewAttribute)attribute
 {
     if (attribute == GSLayoutViewAttributeBaselineOffsetFromBottom) {
-        kiwi::Variable *baselineVariable = [self getExistingVariableForView:view withVariable:attribute];
+        CSWVariable *baselineVariable = [self getExistingVariableForView:view withVariable:attribute];
         CGFloat baseline = [view baselineOffsetFromBottom];
-        solver->suggestValue(*baselineVariable, baseline);
+        [solver suggestEditVariable: baselineVariable equals: baseline];
     } else if (attribute == GSLayoutViewAttributeFirstBaselineOffsetFromTop) {
-        kiwi::Variable *firstBaselineOffsetFromTopVariable = [self getExistingVariableForView:view withVariable:attribute];
+        CSWVariable *firstBaselineOffsetFromTopVariable = [self getExistingVariableForView:view withVariable:attribute];
         CGFloat firstBaselineOffsetFromTop = [view firstBaselineOffsetFromTop];
-        solver->suggestValue(*firstBaselineOffsetFromTopVariable, firstBaselineOffsetFromTop);
+        [solver suggestEditVariable: firstBaselineOffsetFromTopVariable equals: firstBaselineOffsetFromTop];
     } else if (attribute == GSLayoutViewAttributeIntrinsicWidth) {
-        kiwi::Variable *instrinctWidthVariable = [self getExistingVariableForView:view withVariable:attribute];
+        CSWVariable *instrinctWidthVariable = [self getExistingVariableForView:view withVariable:attribute];
         CGFloat width = [view intrinsicContentSize].width;
-        solver->suggestValue(*instrinctWidthVariable, width);
+        [solver suggestEditVariable: instrinctWidthVariable equals: width];
     } else if (attribute == GSLayoutViewAttributeInstrinctHeight) {
-        kiwi::Variable *instrinctHeightVariable = [self getExistingVariableForView:view withVariable:attribute];
+        CSWVariable *instrinctHeightVariable = [self getExistingVariableForView:view withVariable:attribute];
         CGFloat height = [view intrinsicContentSize].height;
-        solver->suggestValue(*instrinctHeightVariable, height);
+        [solver suggestEditVariable: instrinctHeightVariable equals: height];
     }
     
     [self updateAlignmentRectsForTrackedViews];
@@ -123,29 +132,29 @@ typedef NSUInteger GSLayoutAttribute;
 
 -(NSRect)_solverAlignmentRectForView:(NSView *)view
 {
-    kiwi::Variable *minX = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeMinX];
-    kiwi::Variable *minY = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeMinY];
-    kiwi::Variable *width = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeWidth];
-    kiwi::Variable *height = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeHeight];
+    CSWVariable *minX = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeMinX];
+    CSWVariable *minY = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeMinY];
+    CSWVariable *width = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeWidth];
+    CSWVariable *height = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeHeight];
 
-    return NSMakeRect(minX->value(),minY->value(),width->value(),height->value());
+    return NSMakeRect([minX value], [minY value], [width value], [height value]);
 }
 
 -(BOOL)_solverCanSolveAlignmentRectForView: (NSView*)view {
-    kiwi::Variable *minX = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeMinX];
+    CSWVariable *minX = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeMinX];
     if (!minX) {
         return NO;
     }
-    kiwi::Variable *minY = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeMinY];
+    CSWVariable *minY = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeMinY];
     if (!minY) {
         return NO;
     }
-    kiwi::Variable *width = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeWidth];
-    if (!width || !width->value()) {
+    CSWVariable *width = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeWidth];
+    if (!width || ![width value]) {
         return NO;
     }
-    kiwi::Variable *height = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeHeight];
-    if (!height || !width->value()) {
+    CSWVariable *height = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeHeight];
+    if (!height || ![height value]) {
         return NO;
     }
     
@@ -159,7 +168,7 @@ typedef NSUInteger GSLayoutAttribute;
 
 -(void)updateAlignmentRectsForTrackedViews
 {
-    solver->updateVariables();
+    // TODO replace this statement solver->updateVariables();
     NSMutableArray *viewsWithChanges = [NSMutableArray array];
     for (NSView *view in trackedViews) {
         NSNumber *viewIndex = [self indexForView:view];
@@ -268,8 +277,8 @@ typedef NSUInteger GSLayoutAttribute;
         [self addSupportingInternalConstraintsToView:[constraint secondItem] forAttribute:[constraint secondAttribute]];
     }
     
-    kiwi::Constraint *solverConstraint = [self solverConstraintForConstraint: constraint];
-    constraintsByAutoLayoutConstaintHash[[constraint hash]] = solverConstraint;
+    CSWConstraint *solverConstraint = [self solverConstraintForConstraint: constraint];
+    [constraintsByAutoLayoutConstaintHash setObject: solverConstraint forKey: constraint];
     [self addObserverToConstraint:constraint];
     
     try {
@@ -336,15 +345,18 @@ typedef NSUInteger GSLayoutAttribute;
 
 -(void)addInternalWidthConstraintForView: (NSView*)view
 {
-    kiwi::Variable *widthConstraintVariable = [self variableForView: view andAttribute: GSLayoutAttributeWidth];
-    kiwi::Variable *leadingVariable = [self variableForView:view andAttribute:GSLayoutAttributeLeading];
-    kiwi::Variable * trailingVariable = [self variableForView:view andAttribute:GSLayoutAttributeTrailing];
-    kiwi::Variable *minX = [self variableForView:view andAttribute:GSLayoutAttributeMinX];
-    kiwi::Variable *maxX = [self variableForView:view andAttribute:GSLayoutAttributeMaxX];
+    CSWVariable *widthConstraintVariable = [self variableForView: view andAttribute: GSLayoutAttributeWidth];
+    CSWVariable *leadingVariable = [self variableForView:view andAttribute:GSLayoutAttributeLeading];
+    CSWVariable * trailingVariable = [self variableForView:view andAttribute:GSLayoutAttributeTrailing];
+    CSWVariable *minX = [self variableForView:view andAttribute:GSLayoutAttributeMinX];
+    CSWVariable *maxX = [self variableForView:view andAttribute:GSLayoutAttributeMaxX];
 
-    kiwi::Constraint *minXLeadingRelationshipConstraint = new kiwi::Constraint { *minX == *leadingVariable };
-    kiwi::Constraint *maxXTrailingRelationshipConstraint = new kiwi::Constraint { *maxX == *trailingVariable };
-    kiwi::Constraint *widthRelationshipToMaxXAndMinXConstraint = new kiwi::Constraint { *widthConstraintVariable == *maxX - *minX };
+    CSWConstraint *minXLeadingRelationshipConstraint = [CSWConstraint constraintWithLeftVariable: minX operator:CSWConstraintOperatorEqual rightVariable: leadingVariable];
+    CSWConstraint *maxXTrailingRelationshipConstraint = [CSWConstraint constraintWithLeftVariable: maxX operator:CSWConstraintOperatorEqual rightVariable: trailingVariable];
+
+    CSWLinearExpression *maxXMinusMinX = [[CSWLinearExpression alloc] initWithVariable: maxX];
+    [maxXMinusMinX addVariable: minX coefficient: -1];
+    CSWConstraint *widthRelationshipToMaxXAndMinXConstraint = [CSWConstraint constraintWithLeftVariable: widthConstraintVariable operator: CSWConstraintOperatorEqual rightExpression: maxXMinusMinX];
     
     [self addSolverConstraint:widthRelationshipToMaxXAndMinXConstraint];
     [self addSolverConstraint:minXLeadingRelationshipConstraint];
@@ -353,17 +365,18 @@ typedef NSUInteger GSLayoutAttribute;
 
 -(void)addInternalWidthLeftRightConstraintForView: (NSView*)view
 {
-    kiwi::Variable *widthConstraintVariable = [self variableForView: view andAttribute: GSLayoutAttributeWidth];
+    CSWVariable *widthConstraintVariable = [self variableForView: view andAttribute: GSLayoutAttributeWidth];
 
-    kiwi::Variable *minX = [self variableForView:view andAttribute:GSLayoutAttributeMinX];
-    kiwi::Variable *maxX = [self variableForView:view andAttribute:GSLayoutAttributeMaxX];
-    kiwi::Constraint *widthRelationshipToMaxXAndMinXConstraint = new kiwi::Constraint { *widthConstraintVariable == *maxX - *minX };
+    CSWVariable *minX = [self variableForView:view andAttribute:GSLayoutAttributeMinX];
+    CSWVariable *maxX = [self variableForView:view andAttribute:GSLayoutAttributeMaxX];
+    CSWLinearExpression *maxXMinusMinX = [[CSWLinearExpression alloc] initWithVariable: maxX];
+    [maxXMinusMinX addVariable: minX coefficient: -1];
+    CSWConstraint *widthRelationshipToMaxXAndMinXConstraint = [CSWConstraint constraintWithLeftVariable: maxX operator:CSWConstraintOperatorEqual rightExpression: maxXMinusMinX];
 
-
-    kiwi::Variable *leftVariable = [self variableForView:view andAttribute:GSLayoutAttributeLeft];
-    kiwi::Variable *rightVariable = [self variableForView:view andAttribute:GSLayoutAttributeRight];
-    kiwi::Constraint *minXLeadingRelationshipConstraint = new kiwi::Constraint { *minX == *leftVariable };
-    kiwi::Constraint *maxXRightRelationshipConstraint = new kiwi::Constraint { *maxX == *rightVariable };
+    CSWVariable *leftVariable = [self variableForView:view andAttribute:GSLayoutAttributeLeft];
+    CSWVariable *rightVariable = [self variableForView:view andAttribute:GSLayoutAttributeRight];
+    CSWConstraint *minXLeadingRelationshipConstraint = [CSWConstraint constraintWithLeftVariable: minX operator:CSWConstraintOperatorEqual rightVariable: leftVariable];
+    CSWConstraint *maxXRightRelationshipConstraint = [CSWConstraint constraintWithLeftVariable: maxX operator:CSWConstraintOperatorEqual rightVariable: rightVariable];
 
     [self addSolverConstraint:widthRelationshipToMaxXAndMinXConstraint];
     [self addSolverConstraint:minXLeadingRelationshipConstraint];
@@ -372,16 +385,19 @@ typedef NSUInteger GSLayoutAttribute;
 
 -(void)addInternalHeightConstraintForView: (NSView*)view
 {
-    kiwi::Variable *heightConstraintVariable = [self variableForView: view andAttribute: GSLayoutAttributeHeight];
-    kiwi::Variable *minY = [self variableForView:view andAttribute:GSLayoutAttributeMinY];
-    kiwi::Variable *maxY = [self variableForView:view andAttribute:GSLayoutAttributeMaxY];
-    kiwi::Constraint *heightConstraint = new kiwi::Constraint { *heightConstraintVariable == *maxY - *minY };
+    CSWVariable *heightConstraintVariable = [self variableForView: view andAttribute: GSLayoutAttributeHeight];
+    CSWVariable *minY = [self variableForView:view andAttribute:GSLayoutAttributeMinY];
+    CSWVariable *maxY = [self variableForView:view andAttribute:GSLayoutAttributeMaxY];
+
+    CSWLinearExpression *maxYMinusMinY = [[CSWLinearExpression alloc] initWithVariable: maxY];
+    [maxYMinusMinY addVariable: minY coefficient: -1];
+    CSWConstraint *heightConstraint = [CSWConstraint constraintWithLeftVariable: heightConstraintVariable operator:CSWConstraintOperatorEqual rightExpression: maxYMinusMinY];
     [self addSolverConstraint:heightConstraint];
 
-    kiwi::Variable *topVariable = [self variableForView:view andAttribute:GSLayoutAttributeTop];
-    kiwi::Variable *bottomVariable = [self variableForView:view andAttribute:GSLayoutAttributeBottom];;
-    kiwi::Constraint *minYBottomRelationshipConstraint = new kiwi::Constraint { *minY == *bottomVariable };
-    kiwi::Constraint *maxYTopRelationshipConstraint = new kiwi::Constraint { *maxY == *topVariable };
+    CSWVariable *topVariable = [self variableForView:view andAttribute:GSLayoutAttributeTop];
+    CSWVariable *bottomVariable = [self variableForView:view andAttribute:GSLayoutAttributeBottom];
+    CSWConstraint *minYBottomRelationshipConstraint = [CSWConstraint constraintWithLeftVariable: minY operator:CSWConstraintOperatorEqual rightVariable: bottomVariable];
+    CSWConstraint *maxYTopRelationshipConstraint = [CSWConstraint constraintWithLeftVariable: maxY operator:CSWConstraintOperatorEqual rightVariable: topVariable];
 
     [self addSolverConstraint:minYBottomRelationshipConstraint];
     [self addSolverConstraint:maxYTopRelationshipConstraint];
@@ -389,21 +405,28 @@ typedef NSUInteger GSLayoutAttribute;
 
 -(void)addInternalCenterXConstraintsForView: (NSView*)view
 {
-    kiwi::Variable *centerXVariable = [self variableForView:view andAttribute:GSLayoutAttributeCenterX];
-    kiwi::Variable *width = [self variableForView:view andAttribute:GSLayoutAttributeWidth];
-    kiwi::Variable *minX = [self variableForView:view andAttribute:GSLayoutAttributeMinX];
+    CSWVariable *centerXVariable = [self variableForView:view andAttribute:GSLayoutAttributeCenterX];
+    CSWVariable *width = [self variableForView:view andAttribute:GSLayoutAttributeWidth];
+    CSWVariable *minX = [self variableForView:view andAttribute:GSLayoutAttributeMinX];
+
+    CSWLinearExpression *exp = [[CSWLinearExpression alloc] initWithVariable: minX];
+    [exp addVariable: width coefficient: 0.5];
+    CSWConstraint *centerXConstraint = [CSWConstraint constraintWithLeftVariable: centerXVariable operator: CSWConstraintOperatorEqual rightExpression: exp];
     
-    kiwi::Constraint *centerXConstraint = new kiwi::Constraint { *centerXVariable == *minX + (*width / 2) };
+    // kiwi::Constraint *centerXConstraint = new kiwi::Constraint { *centerXVariable == *minX + (*width / 2) };
     [self addSolverConstraint:centerXConstraint];
 }
 
 -(void)addInternalCenterYConstraintsForView: (NSView*)view
 {
-    kiwi::Variable *centerYVariable = [self variableForView:view andAttribute:GSLayoutAttributeCenterY];
-    kiwi::Variable *height = [self variableForView: view andAttribute:GSLayoutAttributeHeight];
-    kiwi::Variable *minY = [self variableForView:view andAttribute:GSLayoutAttributeMinY];
+    CSWVariable *centerYVariable = [self variableForView:view andAttribute:GSLayoutAttributeCenterY];
+    CSWVariable *height = [self variableForView: view andAttribute:GSLayoutAttributeHeight];
+    CSWVariable *minY = [self variableForView:view andAttribute:GSLayoutAttributeMinY];
     
-    kiwi::Constraint *centerYConstraint = new kiwi::Constraint { *centerYVariable == *minY + (*height / 2) };
+    CSWLinearExpression *exp = [[CSWLinearExpression alloc] initWithVariable: minY];
+    [exp addVariable: height coefficient: 0.5];
+    CSWConstraint *centerYConstraint = [CSWConstraint constraintWithLeftVariable: centerYVariable operator: CSWConstraintOperatorEqual rightExpression: exp];
+    // kiwi::Constraint *centerYConstraint = new kiwi::Constraint { *centerYVariable == *minY + (*height / 2) };
     [self addSolverConstraint:centerYConstraint];
 }
 
@@ -412,28 +435,33 @@ typedef NSUInteger GSLayoutAttribute;
     // Requires internal top constraint to solve
     [self addInternalHeightConstraintForView:view];
     
-    kiwi::Variable *firstBaselineVariable = [self variableForView:view andAttribute:GSLayoutAttributeFirstBaseline];
-    kiwi::Variable *top = [self variableForView:view andAttribute:GSLayoutAttributeTop];
-    kiwi::Variable *firstBaselineOffsetVariable = [self variableForView: view andViewAttribute:GSLayoutViewAttributeFirstBaselineOffsetFromTop];
+    CSWVariable *firstBaselineVariable = [self variableForView:view andAttribute:GSLayoutAttributeFirstBaseline];
+    CSWVariable *top = [self variableForView:view andAttribute:GSLayoutAttributeTop];
+    CSWVariable *firstBaselineOffsetVariable = [self variableForView: view andViewAttribute:GSLayoutViewAttributeFirstBaselineOffsetFromTop];
     
     [self resolveAndObserveViewAttribute:GSLayoutViewAttributeFirstBaselineOffsetFromTop view:view];
-    kiwi::Constraint *firstBaselineConstraint = new kiwi::Constraint {
-        *firstBaselineVariable == *top - *firstBaselineOffsetVariable
-    };
+    CSWLinearExpression *exp = [[CSWLinearExpression alloc] initWithVariable: top];
+    [exp addVariable: firstBaselineOffsetVariable coefficient: -1];
+    CSWConstraint *firstBaselineConstraint = [CSWConstraint constraintWithLeftVariable: firstBaselineVariable operator: CSWConstraintOperatorEqual rightExpression: exp];
+    // kiwi::Constraint *firstBaselineConstraint = new kiwi::Constraint {
+    //     *firstBaselineVariable == *top - *firstBaselineOffsetVariable
+    // };
     [self addSolverConstraint:firstBaselineConstraint];
 }
 
 -(void)addInternalBaselineConstraintsForView: (NSView*)view
 {
-    kiwi::Variable *baselineVariable = [self variableForView:view andAttribute:GSLayoutAttributeBaseline];
-    kiwi::Variable *minY = [self variableForView:view andAttribute:GSLayoutAttributeMinY];
-    kiwi::Variable *baselineOffsetVariable = [self variableForView: view andViewAttribute:GSLayoutViewAttributeBaselineOffsetFromBottom];
+    CSWVariable *baselineVariable = [self variableForView:view andAttribute:GSLayoutAttributeBaseline];
+    CSWVariable *minY = [self variableForView:view andAttribute:GSLayoutAttributeMinY];
+    CSWVariable *baselineOffsetVariable = [self variableForView: view andViewAttribute:GSLayoutViewAttributeBaselineOffsetFromBottom];
 
     [self resolveAndObserveViewAttribute:GSLayoutViewAttributeBaselineOffsetFromBottom view:view];
-
-    kiwi::Constraint *baselineConstraint = new kiwi::Constraint {
-        *baselineVariable == *minY + *baselineOffsetVariable
-    };
+    CSWLinearExpression *exp = [[CSWLinearExpression alloc] initWithVariable: minY];
+    [exp addVariable: baselineOffsetVariable];
+    CSWConstraint *baselineConstraint = [CSWConstraint constraintWithLeftVariable: baselineVariable operator: CSWConstraintOperatorEqual rightExpression: exp];
+    // kiwi::Constraint *baselineConstraint = new kiwi::Constraint {
+    //     *baselineVariable == *minY + *baselineOffsetVariable
+    // };
     [self addSolverConstraint:baselineConstraint];
 }
 
@@ -447,23 +475,28 @@ typedef NSUInteger GSLayoutAttribute;
 }
 
 -(void)addSupportingInstrictSizeConstraintsToView: (NSView*)view orientation: (NSLayoutConstraintOrientation)orientation instrinctSizeAttribute: (GSLayoutViewAttribute)instrinctSizeAttribute dimensionAttribute: (GSLayoutAttribute)dimensionAttribute {
-    kiwi::Variable *instrinctContentDimension = [self variableForView:view andViewAttribute:instrinctSizeAttribute];
-    kiwi::Variable *dimensionVariable = [self variableForView:view andAttribute:dimensionAttribute];
+    CSWVariable *instrinctContentDimension = [self variableForView:view andViewAttribute:instrinctSizeAttribute];
+    CSWVariable *dimensionVariable = [self variableForView:view andAttribute:dimensionAttribute];
     [self resolveVariableForView:view attribute:instrinctSizeAttribute];
 
     double huggingPriority = [view contentHuggingPriorityForOrientation:orientation];
     double huggingConstraintStrength = [self constraintStrengthForPriority:huggingPriority];
-    kiwi::Constraint *huggingConstraint = new kiwi::Constraint {
-        *dimensionVariable <= *instrinctContentDimension | huggingConstraintStrength
-    };
+    CSWConstraint *huggingConstraint = [CSWConstraint constraintWithLeftVariable: dimensionVariable operator: CSWConstraintOperatorLessThanOrEqual rightVariable: instrinctContentDimension];
+    // TODO set strength
+
+    // kiwi::Constraint *huggingConstraint = new kiwi::Constraint {
+    //     *dimensionVariable <= *instrinctContentDimension | huggingConstraintStrength
+    // };
     [self addSolverConstraint:huggingConstraint];
     
     double compressionPriority = [view contentCompressionResistancePriorityForOrientation:orientation];
     double compressionConstraintStrength =  [self constraintStrengthForPriority:compressionPriority];
     
-    kiwi::Constraint *compressionConstraint = new kiwi::Constraint {
-        *dimensionVariable >= *instrinctContentDimension | compressionConstraintStrength
-    };
+    CSWConstraint *compressionConstraint = [CSWConstraint constraintWithLeftVariable: dimensionVariable operator: CSWConstraintOperationGreaterThanOrEqual rightVariable: instrinctContentDimension];
+    // TODO set strength
+    // kiwi::Constraint *compressionConstraint = new kiwi::Constraint {
+    //     *dimensionVariable >= *instrinctContentDimension | compressionConstraintStrength
+    // };
     [self addSolverConstraint:compressionConstraint];
 }
 
@@ -500,11 +533,11 @@ typedef NSUInteger GSLayoutAttribute;
 
 -(void)updateConstraint: (NSLayoutConstraint*)constraint
 {
-    kiwi::Constraint *kConstraint = [self getExistingConstraintForAutolayoutConstraint:constraint];
-    [self removeSolverConstraint:kConstraint];
+    CSWConstraint *kConstraint = [self getExistingConstraintForAutolayoutConstraint:constraint];
+    [self removeSolverConstraint:kConstraint];\
     
-    kiwi::Constraint *newKConstraint = [self solverConstraintForConstraint:constraint];
-    constraintsByAutoLayoutConstaintHash[[constraint hash]] = newKConstraint;
+    CSWConstraint *newKConstraint = [self solverConstraintForConstraint:constraint];
+    [constraintsByAutoLayoutConstaintHash setObject: newKConstraint forKey: constraint];
     [self addSolverConstraint:newKConstraint];
 
     [self updateAlignmentRectsForTrackedViews];
@@ -517,9 +550,9 @@ typedef NSUInteger GSLayoutAttribute;
     }
 }
 
--(kiwi::Variable*)variableForView:(NSView*)view andAttribute: (GSLayoutAttribute)attribute
+-(CSWVariable*)variableForView:(NSView*)view andAttribute: (GSLayoutAttribute)attribute
 {
-    kiwi::Variable *existingVariable = [self getExistingVariableForView:view withAttribute:(GSLayoutAttribute)attribute];
+    CSWVariable *existingVariable = [self getExistingVariableForView:view withAttribute:(GSLayoutAttribute)attribute];
     if (existingVariable != nil) {
         return existingVariable;
     } else {
@@ -527,9 +560,9 @@ typedef NSUInteger GSLayoutAttribute;
     }
 }
 
--(kiwi::Variable*)variableForView: (NSView*)view andViewAttribute: (GSLayoutViewAttribute)attribute
+-(CSWVariable*)variableForView: (NSView*)view andViewAttribute: (GSLayoutViewAttribute)attribute
 {
-    kiwi::Variable *existingVariable = [self getExistingVariableForView:view withVariable:attribute];
+    CSWVariable *existingVariable = [self getExistingVariableForView:view withVariable:attribute];
     if (existingVariable != nil) {
         return existingVariable;
     } else {
@@ -537,43 +570,36 @@ typedef NSUInteger GSLayoutAttribute;
     }
 }
 
--(kiwi::Variable*)getExistingVariableForView:(NSView*)view withAttribute: (GSLayoutAttribute)attribute
+-(CSWVariable*)getExistingVariableForView:(NSView*)view withAttribute: (GSLayoutAttribute)attribute
 {
     NSString *variableIdentifier = [self getVariableIdentifierForView: view withAttribute: (GSLayoutAttribute)attribute];
     return [self varibleWithName:variableIdentifier];
 }
 
--(kiwi::Variable*)getExistingVariableForView: (NSView*)view withVariable: (GSLayoutViewAttribute)attribute
+-(CSWVariable*)getExistingVariableForView: (NSView*)view withVariable: (GSLayoutViewAttribute)attribute
 {
     NSString *variableIdentifier = [self getDynamicVariableIdentifierForView:view withViewAttribute:attribute];
     return [self varibleWithName:variableIdentifier];
 }
 
--(kiwi::Variable*) varibleWithName:(NSString*)variableName
+-(CSWVariable*) varibleWithName:(NSString*)variableName
 {
-    std::string viewIdStr = std::string([variableName UTF8String]);
-
-    if (variablesByKey.find(viewIdStr) != variablesByKey.end()) {
-        return variablesByKey[viewIdStr];
-    }
-    return nil;
+    return [variablesByKey objectForKey: variableName];
 }
 
--(kiwi::Variable*)createVariableForView:(NSView*)view withAttribute: (GSLayoutAttribute)attribute
+-(CSWVariable*)createVariableForView:(NSView*)view withAttribute: (GSLayoutAttribute)attribute
 {
     NSString *variableIdentifier = [self getVariableIdentifierForView: view withAttribute: attribute];
     
-    kiwi::Variable *variable = [self createVariableWithName:variableIdentifier];
-    
-    return variable;
+    return [self createVariableWithName:variableIdentifier];
 }
 
--(kiwi::Variable*)createVariableForView:(NSView*)view attribute: (GSLayoutViewAttribute)attribute
+-(CSWVariable*)createVariableForView:(NSView*)view attribute: (GSLayoutViewAttribute)attribute
 {
     NSString *variableIdentifier = [self getDynamicVariableIdentifierForView:view withViewAttribute:attribute];
-    kiwi::Variable *variable = [self createVariableWithName:variableIdentifier];
+    CSWVariable *variable = [self createVariableWithName:variableIdentifier];
 
-    solver->addEditVariable(*variable, kiwi::strength::strong);
+    // solver->addEditVariable(*variable, kiwi::strength::strong);
     NSDictionary *trackedVariable = @{
         @"view" : view,
         @"attribute" : [NSNumber numberWithInteger: attribute],
@@ -583,8 +609,8 @@ typedef NSUInteger GSLayoutAttribute;
     return variable;
 }
 
--(kiwi::Variable*)getOrCreateVariableWithName: (NSString*)name {
-    kiwi::Variable *existingVariable = [self varibleWithName:name];
+-(CSWVariable*)getOrCreateVariableWithName: (NSString*)name {
+    CSWVariable *existingVariable = [self varibleWithName:name];
     if (existingVariable != nil) {
         return existingVariable;
     }
@@ -592,13 +618,12 @@ typedef NSUInteger GSLayoutAttribute;
     return [self createVariableWithName:name];
 }
 
--(kiwi::Variable*)createVariableWithName: (NSString*)name
+-(CSWVariable*)createVariableWithName: (NSString*)name
 {
-    std::string viewIdStr = std::string([name UTF8String]);
-    kiwi::Variable *varible = new kiwi::Variable(viewIdStr);
-    variablesByKey[viewIdStr] = varible;
+    CSWVariable *variable = [[CSWVariable alloc] initWithName: name];
+    [variablesByKey setObject: variable forKey: name];
     
-    return varible;
+    return variable;
 }
 
 -(NSString*)getVariableIdentifierForView: (NSView*)view withAttribute: (GSLayoutAttribute)attribute
@@ -673,7 +698,7 @@ typedef NSUInteger GSLayoutAttribute;
     }
 }
 
--(kiwi::Constraint*)solverConstraintForConstraint:(NSLayoutConstraint*)constraint
+-(CSWConstraint*)solverConstraintForConstraint:(NSLayoutConstraint*)constraint
 {
     if ([constraint secondItem] == nil) {
         return [self solverConstraintForNonRelationalConstraint:constraint];
@@ -682,36 +707,69 @@ typedef NSUInteger GSLayoutAttribute;
     }
 }
 
--(kiwi::Constraint*)solverConstraintForNonRelationalConstraint: (NSLayoutConstraint*)constraint
+-(CSWConstraint*)solverConstraintForNonRelationalConstraint: (NSLayoutConstraint*)constraint
 {
-    kiwi::Variable *firstItemConstraintVariable = [self variableForView: [constraint firstItem] andAttribute: (GSLayoutAttribute)[constraint firstAttribute]];
+    CSWVariable *firstItemConstraintVariable = [self variableForView: [constraint firstItem] andAttribute: (GSLayoutAttribute)[constraint firstAttribute]];
     double constraintStrength = [self constraintStrengthForPriority:constraint.priority];
     switch ([constraint relation]) {
-        case NSLayoutRelationLessThanOrEqual:
-            return new kiwi::Constraint { *firstItemConstraintVariable <= [constraint constant] | constraintStrength };
+        case NSLayoutRelationLessThanOrEqual: {
+            CSWConstraint *sConstraint = [CSWConstraint constraintWithLeftVariable: firstItemConstraintVariable operator: CSWConstraintOperatorLessThanOrEqual rightConstant: [constraint constant]];
+            // TODO set strength
+            return sConstraint;
+        }
+          
+            // return new kiwi::Constraint { *firstItemConstraintVariable <= [constraint constant] | constraintStrength };
         case NSLayoutRelationEqual:
-            return new kiwi::Constraint { *firstItemConstraintVariable == [constraint constant] | constraintStrength };
+            return [CSWConstraint constraintWithLeftVariable: firstItemConstraintVariable operator: CSWConstraintOperatorEqual rightConstant: [constraint constant]];
+
+            //return new kiwi::Constraint { *firstItemConstraintVariable == [constraint constant] | constraintStrength };
         case NSLayoutRelationGreaterThanOrEqual:
-            return new kiwi::Constraint { *firstItemConstraintVariable >= [constraint constant] | constraintStrength };
+            return [CSWConstraint constraintWithLeftVariable: firstItemConstraintVariable operator: CSWConstraintOperationGreaterThanOrEqual rightConstant: [constraint constant]];
+            // return new kiwi::Constraint { *firstItemConstraintVariable >= [constraint constant] | constraintStrength };
     }
 }
 
--(kiwi::Constraint*)solverConstraintForRelationalConstraint: (NSLayoutConstraint*)constraint
+-(CSWConstraint*)solverConstraintForRelationalConstraint: (NSLayoutConstraint*)constraint
 {
-    kiwi::Variable *firstItemConstraintVariable = [self variableForView: [constraint firstItem] andAttribute: (GSLayoutAttribute)[constraint firstAttribute]];
-    kiwi::Variable *secondItemConstraintVariable = [self variableForView: [constraint secondItem] andAttribute: (GSLayoutAttribute)[constraint secondAttribute]];
+    CSWVariable *firstItemConstraintVariable = [self variableForView: [constraint firstItem] andAttribute: (GSLayoutAttribute)[constraint firstAttribute]];
+    CSWVariable *secondItemConstraintVariable = [self variableForView: [constraint secondItem] andAttribute: (GSLayoutAttribute)[constraint secondAttribute]];
     
     double constraintStrength = [self constraintStrengthForPriority:constraint.priority];
     CGFloat multiplier = [constraint multiplier];
-    
-    switch ([constraint relation]) {
+
+    CSWConstraintOperator op = CSWConstraintOperatorEqual;
+        switch ([constraint relation]) {
         case NSLayoutRelationEqual:
-            return new kiwi::Constraint { *firstItemConstraintVariable == multiplier * *secondItemConstraintVariable + [self getConstantMultiplierForLayoutAttribute: [constraint secondAttribute]] * [constraint constant] | constraintStrength };
+            op = CSWConstraintOperatorEqual;
+            break;
+            // return new kiwi::Constraint { *firstItemConstraintVariable == multiplier * *secondItemConstraintVariable + [self getConstantMultiplierForLayoutAttribute: [constraint secondAttribute]] * [constraint constant] | constraintStrength };
         case NSLayoutRelationLessThanOrEqual:
-            return new kiwi::Constraint { *firstItemConstraintVariable <= multiplier * *secondItemConstraintVariable + [self getConstantMultiplierForLayoutAttribute: [constraint secondAttribute]] * [constraint constant] | constraintStrength };
+            op = CSWConstraintOperatorLessThanOrEqual;
+            break;
+            // return new kiwi::Constraint { *firstItemConstraintVariable <= multiplier * *secondItemConstraintVariable + [self getConstantMultiplierForLayoutAttribute: [constraint secondAttribute]] * [constraint constant] | constraintStrength };
         case NSLayoutRelationGreaterThanOrEqual:
-            return new kiwi::Constraint { *firstItemConstraintVariable >= multiplier * *secondItemConstraintVariable + [self getConstantMultiplierForLayoutAttribute: [constraint secondAttribute]] * [constraint constant] | constraintStrength };
+            op = CSWConstraintOperationGreaterThanOrEqual;
+            break;
+            // return new kiwi::Constraint { *firstItemConstraintVariable >= multiplier * *secondItemConstraintVariable + [self getConstantMultiplierForLayoutAttribute: [constraint secondAttribute]] * [constraint constant] | constraintStrength };
     }
+    double constant = [self getConstantMultiplierForLayoutAttribute: [constraint secondAttribute]] * [constraint constant];
+
+    CSWLinearExpression *rightExpression = [[CSWLinearExpression alloc] initWithVariable: secondItemConstraintVariable coefficient: multiplier constant: constant];
+    // TODO set constraint strength
+    return [CSWConstraint constraintWithLeftVariable: firstItemConstraintVariable operator: op rightExpression: rightExpression];
+
+    
+    // new kiwi::Constraint { *firstItemConstraintVariable == multiplier * *secondItemConstraintVariable
+    //  + [self getConstantMultiplierForLayoutAttribute: [constraint secondAttribute]] * [constraint constant] | constraintStrength };
+
+    // switch ([constraint relation]) {
+    //     case NSLayoutRelationEqual:
+    //         return new kiwi::Constraint { *firstItemConstraintVariable == multiplier * *secondItemConstraintVariable + [self getConstantMultiplierForLayoutAttribute: [constraint secondAttribute]] * [constraint constant] | constraintStrength };
+    //     case NSLayoutRelationLessThanOrEqual:
+    //         return new kiwi::Constraint { *firstItemConstraintVariable <= multiplier * *secondItemConstraintVariable + [self getConstantMultiplierForLayoutAttribute: [constraint secondAttribute]] * [constraint constant] | constraintStrength };
+    //     case NSLayoutRelationGreaterThanOrEqual:
+    //         return new kiwi::Constraint { *firstItemConstraintVariable >= multiplier * *secondItemConstraintVariable + [self getConstantMultiplierForLayoutAttribute: [constraint secondAttribute]] * [constraint constant] | constraintStrength };
+    // }
 }
 
 -(int)getConstantMultiplierForLayoutAttribute: (NSLayoutAttribute)attribute
@@ -739,18 +797,14 @@ typedef NSUInteger GSLayoutAttribute;
     return MAX(0.0, MIN(1000.0, priority)) * 1000000.0;
 }
 
--(kiwi::Constraint*)getExistingConstraintForAutolayoutConstraint: (NSLayoutConstraint*)constraint
+-(CSWConstraint*)getExistingConstraintForAutolayoutConstraint: (NSLayoutConstraint*)constraint
 {
-    NSUInteger constraintHash = [constraint hash];
-    if (constraintsByAutoLayoutConstaintHash.find(constraintHash) != constraintsByAutoLayoutConstaintHash.end()) {
-        return constraintsByAutoLayoutConstaintHash[constraintHash];
-    }
-    return nil;
+    return [constraintsByAutoLayoutConstaintHash objectForKey: constraint];
 }
 
 -(void)removeConstraint: (NSLayoutConstraint*)constraint
 {
-    kiwi::Constraint *kConstraint = [self getExistingConstraintForAutolayoutConstraint:constraint];
+    CSWConstraint *kConstraint = [self getExistingConstraintForAutolayoutConstraint:constraint];
     if (kConstraint == nil) {
         return;
     }
@@ -779,23 +833,20 @@ typedef NSUInteger GSLayoutAttribute;
 
 -(void)debugSolver
 {
-    std::string dump = solver->dumps();
-    NSString *debug = [NSString stringWithCString:dump.c_str()
-    encoding:[NSString defaultCStringEncoding]];
-    NSLog(@"%@", debug);
+    NSLog(@"%@", solver);
 }
 
--(void)addSolverConstraint: (kiwi::Constraint*)constraint
+-(void)addSolverConstraint: (CSWConstraint*)constraint
 {
-    solverConstraints.push_back(constraint);
-    solver->addConstraint(*constraint);
+    [solverConstraints addObject: constraint];
+    [solver addConstraint: constraint];
 }
 
--(void)removeSolverConstraint: (kiwi::Constraint*)constraint
+-(void)removeSolverConstraint: (CSWConstraint*)constraint
 {
-    solver->removeConstraint(*constraint);
-    solverConstraints.erase(std::remove(solverConstraints.begin(), solverConstraints.end(), constraint), solverConstraints.end());
-    delete constraint;
+    [solver removeConstraint: constraint];
+    [solverConstraints removeObject: constraint];
+    // dealoc constraint
 }
 
 -(NSArray*)constraintsForView: (NSView*)view
@@ -814,7 +865,7 @@ typedef NSUInteger GSLayoutAttribute;
     [viewIndexByViewHash release];
     [constraintsByViewIndex release];
 
-    delete solver;
+    [solver dealloc];
     [self deallocSolverVariables];
     [self deallocSolverConstraints];
     [super dealloc];
@@ -822,18 +873,18 @@ typedef NSUInteger GSLayoutAttribute;
 
 -(void)deallocSolverVariables
 {
-    std::map<std::string, kiwi::Variable*>::iterator variableByIterator;
-    for (variableByIterator = variablesByKey.begin(); variableByIterator != variablesByKey.end(); variableByIterator++)
-    {
-        delete variableByIterator->second;
-    }
+    // std::map<std::string, kiwi::Variable*>::iterator variableByIterator;
+    // for (variableByIterator = variablesByKey.begin(); variableByIterator != variablesByKey.end(); variableByIterator++)
+    // {
+    //     delete variableByIterator->second;
+    // }
 }
 
 -(void)deallocSolverConstraints
 {
-    for (const kiwi::Constraint *constraint: solverConstraints) {
-        delete constraint;
-    }
+    // for (const kiwi::Constraint *constraint: solverConstraints) {
+    //     delete constraint;
+    // }
 }
 
 @end
