@@ -168,7 +168,7 @@ typedef NSUInteger GSLayoutAttribute;
 
 -(void)updateAlignmentRectsForTrackedViews
 {
-    // TODO replace this statement solver->updateVariables();
+    [solver solve];
     NSMutableArray *viewsWithChanges = [NSMutableArray array];
     for (NSView *view in trackedViews) {
         NSNumber *viewIndex = [self indexForView:view];
@@ -620,7 +620,8 @@ typedef NSUInteger GSLayoutAttribute;
 
 -(CSWVariable*)createVariableWithName: (NSString*)name
 {
-    CSWVariable *variable = [[CSWVariable alloc] initWithName: name];
+    // TODO Fix hardcoded default value, this should really be nil or empty not zero and could lead to bugs
+    CSWVariable *variable = [CSWVariable variableWithValue:0 name: name];
     [variablesByKey setObject: variable forKey: name];
     
     return variable;
