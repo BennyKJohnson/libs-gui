@@ -618,7 +618,8 @@ typedef NSUInteger GSLayoutAttribute;
 
 -(CSWVariable*)createVariableWithName: (NSString*)name
 {
-    CSWVariable *variable = [CSWVariable variableWithValue:0 name:name];
+    // TODO Fix hardcoded default value, this should really be nil or empty not zero and could lead to bugs
+    CSWVariable *variable = [CSWVariable variableWithValue:0 name: name];
     [variablesByKey setObject: variable forKey: name];
     
     return variable;
