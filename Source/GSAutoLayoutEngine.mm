@@ -325,18 +325,23 @@ typedef NSUInteger GSLayoutAttribute;
 
 -(void)addSupportingInternalConstraintsToView: (NSView*)view forAttribute: (NSLayoutAttribute)attribute
 {
+    if ([self indexForView: view] == nil) {
+        [self addInternalWidthConstraintForView: view];
+        [self addInternalHeightConstraintForView: view];
+    }
+
     switch (attribute) {
         case NSLayoutAttributeTrailing:
         case NSLayoutAttributeLeading:
-            [self addInternalWidthConstraintForView: view];
+            [self addInternalLeadingTrailingConstraintsForView: view];
             break;
         case NSLayoutAttributeLeft:
         case NSLayoutAttributeRight:
-            [self addInternalWidthLeftRightConstraintForView: view];
+            [self addInternalWidthLeftRightConstraintsForView: view];
             break;
         case NSLayoutAttributeTop:
         case NSLayoutAttributeBottom:
-            [self addInternalHeightConstraintForView: view];
+            [self addInternalTopBottomConstraintsForView: view];
             break;
         case NSLayoutAttributeCenterX:
             [self addInternalCenterXConstraintsForView:view];
@@ -357,41 +362,14 @@ typedef NSUInteger GSLayoutAttribute;
 -(void)addInternalWidthConstraintForView: (NSView*)view
 {
     CSWVariable *widthConstraintVariable = [self variableForView: view andAttribute: GSLayoutAttributeWidth];
-    CSWVariable *leadingVariable = [self variableForView:view andAttribute:GSLayoutAttributeLeading];
-    CSWVariable * trailingVariable = [self variableForView:view andAttribute:GSLayoutAttributeTrailing];
     CSWVariable *minX = [self variableForView:view andAttribute:GSLayoutAttributeMinX];
     CSWVariable *maxX = [self variableForView:view andAttribute:GSLayoutAttributeMaxX];
-
-    CSWConstraint *minXLeadingRelationshipConstraint = [CSWConstraint constraintWithLeftVariable: minX operator:CSWConstraintOperatorEqual rightVariable: leadingVariable];
-    CSWConstraint *maxXTrailingRelationshipConstraint = [CSWConstraint constraintWithLeftVariable: maxX operator:CSWConstraintOperatorEqual rightVariable: trailingVariable];
 
     CSWLinearExpression *maxXMinusMinX = [[CSWLinearExpression alloc] initWithVariable: maxX];
     [maxXMinusMinX addVariable: minX coefficient: -1];
     CSWConstraint *widthRelationshipToMaxXAndMinXConstraint = [CSWConstraint constraintWithLeftVariable: widthConstraintVariable operator: CSWConstraintOperatorEqual rightExpression: maxXMinusMinX];
     
     [self addSolverConstraint:widthRelationshipToMaxXAndMinXConstraint];
-    [self addSolverConstraint:minXLeadingRelationshipConstraint];
-    [self addSolverConstraint: maxXTrailingRelationshipConstraint];
-}
-
--(void)addInternalWidthLeftRightConstraintForView: (NSView*)view
-{
-
-    CSWVariable *minX = [self variableForView:view andAttribute:GSLayoutAttributeMinX];
-    CSWVariable *maxX = [self variableForView:view andAttribute:GSLayoutAttributeMaxX];
-    CSWLinearExpression *maxXMinusMinX = [[CSWLinearExpression alloc] initWithVariable: maxX];
-    [maxXMinusMinX addVariable: minX coefficient: -1];
-    CSWVariable *widthConstraintVariable = [self variableForView: view andAttribute: GSLayoutAttributeWidth];
-    CSWConstraint *widthRelationshipToMaxXAndMinXConstraint = [CSWConstraint constraintWithLeftVariable: widthConstraintVariable operator:CSWConstraintOperatorEqual rightExpression: maxXMinusMinX];
-
-    CSWVariable *leftVariable = [self variableForView:view andAttribute:GSLayoutAttributeLeft];
-    CSWVariable *rightVariable = [self variableForView:view andAttribute:GSLayoutAttributeRight];
-    CSWConstraint *minXLeadingRelationshipConstraint = [CSWConstraint constraintWithLeftVariable: minX operator:CSWConstraintOperatorEqual rightVariable: leftVariable];
-    CSWConstraint *maxXRightRelationshipConstraint = [CSWConstraint constraintWithLeftVariable: maxX operator:CSWConstraintOperatorEqual rightVariable: rightVariable];
-
-    [self addSolverConstraint:widthRelationshipToMaxXAndMinXConstraint];
-    [self addSolverConstraint:minXLeadingRelationshipConstraint];
-    [self addSolverConstraint: maxXRightRelationshipConstraint];
 }
 
 -(void)addInternalHeightConstraintForView: (NSView*)view
@@ -404,13 +382,44 @@ typedef NSUInteger GSLayoutAttribute;
     [maxYMinusMinY addVariable: minY coefficient: -1];
     CSWConstraint *heightConstraint = [CSWConstraint constraintWithLeftVariable: heightConstraintVariable operator:CSWConstraintOperatorEqual rightExpression: maxYMinusMinY];
     [self addSolverConstraint:heightConstraint];
+}
 
-    CSWVariable *topVariable = [self variableForView:view andAttribute:GSLayoutAttributeTop];
+-(void)addInternalLeadingTrailingConstraintsForView: (NSView*)view
+{
+    CSWVariable *minX = [self variableForView:view andAttribute:GSLayoutAttributeMinX];
+    CSWVariable *leadingVariable = [self variableForView:view andAttribute:GSLayoutAttributeLeading];
+    CSWConstraint *minXLeadingRelationshipConstraint = [CSWConstraint constraintWithLeftVariable: minX operator:CSWConstraintOperatorEqual rightVariable: leadingVariable];
+    [self addSolverConstraint:minXLeadingRelationshipConstraint];
+
+    CSWVariable * trailingVariable = [self variableForView:view andAttribute:GSLayoutAttributeTrailing];
+    CSWVariable *maxX = [self variableForView:view andAttribute:GSLayoutAttributeMaxX];
+    CSWConstraint *maxXTrailingRelationshipConstraint = [CSWConstraint constraintWithLeftVariable: maxX operator:CSWConstraintOperatorEqual rightVariable: trailingVariable];
+    [self addSolverConstraint: maxXTrailingRelationshipConstraint];
+}
+
+-(void)addInternalWidthLeftRightConstraintsForView: (NSView*)view
+{
+    CSWVariable *minX = [self variableForView:view andAttribute:GSLayoutAttributeMinX];
+    CSWVariable *leftVariable = [self variableForView:view andAttribute:GSLayoutAttributeLeft];
+    CSWConstraint *minXLeadingRelationshipConstraint = [CSWConstraint constraintWithLeftVariable: minX operator:CSWConstraintOperatorEqual rightVariable: leftVariable];
+    [self addSolverConstraint:minXLeadingRelationshipConstraint];
+
+    CSWVariable *maxX = [self variableForView:view andAttribute:GSLayoutAttributeMaxX];
+    CSWVariable *rightVariable = [self variableForView:view andAttribute:GSLayoutAttributeRight];
+    CSWConstraint *maxXRightRelationshipConstraint = [CSWConstraint constraintWithLeftVariable: maxX operator:CSWConstraintOperatorEqual rightVariable: rightVariable];
+    [self addSolverConstraint: maxXRightRelationshipConstraint];
+}
+
+-(void)addInternalTopBottomConstraintsForView: (NSView*)view
+{
+    CSWVariable *minY = [self variableForView:view andAttribute:GSLayoutAttributeMinY];
     CSWVariable *bottomVariable = [self variableForView:view andAttribute:GSLayoutAttributeBottom];
     CSWConstraint *minYBottomRelationshipConstraint = [CSWConstraint constraintWithLeftVariable: minY operator:CSWConstraintOperatorEqual rightVariable: bottomVariable];
-    CSWConstraint *maxYTopRelationshipConstraint = [CSWConstraint constraintWithLeftVariable: maxY operator:CSWConstraintOperatorEqual rightVariable: topVariable];
-
     [self addSolverConstraint:minYBottomRelationshipConstraint];
+
+    CSWVariable *maxY = [self variableForView:view andAttribute:GSLayoutAttributeMaxY];
+    CSWVariable *topVariable = [self variableForView:view andAttribute:GSLayoutAttributeTop];
+    CSWConstraint *maxYTopRelationshipConstraint = [CSWConstraint constraintWithLeftVariable: maxY operator:CSWConstraintOperatorEqual rightVariable: topVariable];
     [self addSolverConstraint:maxYTopRelationshipConstraint];
 }
 
@@ -442,7 +451,7 @@ typedef NSUInteger GSLayoutAttribute;
 -(void)addInternalFirstBaselineConstraintsForView: (NSView*)view
 {
     // Requires internal top constraint to solve
-    [self addInternalHeightConstraintForView:view];
+    [self addInternalTopBottomConstraintsForView:view];
     
     CSWVariable *firstBaselineVariable = [self variableForView:view andAttribute:GSLayoutAttributeFirstBaseline];
     CSWVariable *top = [self variableForView:view andAttribute:GSLayoutAttributeTop];

@@ -813,7 +813,6 @@ NSString const *needsUpdateConstraintsKey = @"NSConstraintBasedLayoutCoreMethods
     NSArray *autoresizingConstraints = [NSAutoresizingMaskLayoutConstraint
       constraintsWithAutoresizingMask: [self autoresizingMask]
     subitem:self frame:[self frame] superitem:[self superview] bounds:[[self superview] bounds]];
-    
     [self addConstraints: autoresizingConstraints];
   }
   [self _setNeedsUpdateConstraints: NO];
