@@ -676,12 +676,11 @@ typedef NSUInteger GSLayoutAttribute;
         case GSLayoutAttributeMaxY:
             return @"maxY";
         default:
-            NSException* myException = [NSException
+            [[NSException
                     exceptionWithName:@"Not handled"
-                    reason:@"File Not Found on System"
-                    userInfo:nil];
-            [myException raise];
-            return @"";
+                    reason:@"GSLayoutAttribute not handled"
+                    userInfo:nil] raise];
+            return nil;
     }
 }
 
