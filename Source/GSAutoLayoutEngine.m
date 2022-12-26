@@ -285,11 +285,14 @@ typedef NSUInteger GSLayoutAttribute;
     [constraintsByAutoLayoutConstaintHash setObject: solverConstraint forKey: constraint];
     [self addObserverToConstraint:constraint];
     
-    [self addSolverConstraint:solverConstraint];
+    @try {
+        [self addSolverConstraint:solverConstraint];
+        [self updateAlignmentRectsForTrackedViews];
+    } @catch (NSException *exception) {
+        NSLog(@"Unable to simultaneously satisfy constraints\nWill attempt to recover by breaking constraint\n%@", constraint);
+    }
 
     [self addConstraintAgainstViewConstraintsArray: constraint];
-    
-    [self updateAlignmentRectsForTrackedViews];
 }
 
 -(void) addConstraintAgainstViewConstraintsArray: (NSLayoutConstraint*)constraint
