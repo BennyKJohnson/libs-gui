@@ -86,17 +86,6 @@ typedef NSUInteger GSLayoutAttribute;
     return self;
 }
 
--(void) addInternalConstraintsToView: (NSView*)view
-{
-    CSWVariable *viewMinXVariable = [self variableForView:view andAttribute:GSLayoutAttributeMinX];
-    CSWConstraint *minXConstraint = [CSWConstraint constraintWithLeftVariable: viewMinXVariable operator: CSWConstraintOperatorEqual rightConstant: 0];
-    [self addSolverConstraint:minXConstraint];
-
-    CSWVariable *viewMinYVariable = [self variableForView:view andAttribute:GSLayoutAttributeMinY];
-    CSWConstraint *minYConstraint = [CSWConstraint constraintWithLeftVariable: viewMinYVariable operator: CSWConstraintOperatorEqual rightConstant: 0];
-    [self addSolverConstraint:minYConstraint];
-}
-
 -(void)resolveVariables {
     for (id trackedVariable in trackedVariables) {
         NSView *view = trackedVariable[@"view"];
