@@ -1,4 +1,5 @@
 #import <Foundation/Foundation.h>
+#include "CSWSimplexSolver.h"
 
 @class NSView;
 @class NSLayoutConstraint;
@@ -6,6 +7,8 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @interface GSAutoLayoutEngine : NSObject
+
+-(instancetype)initWithSolver: (CSWSimplexSolver*)solver;
 
 -(void)addConstraint: (NSLayoutConstraint*)constraint;
 

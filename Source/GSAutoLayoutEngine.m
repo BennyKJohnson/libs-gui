@@ -1,6 +1,5 @@
 #import "GSAutoLayoutEngine.h"
 #include "AppKit/NSLayoutConstraint.h"
-#include "CSWSimplexSolver.h"
 #include "CSWConstraint.h"
 
 enum {
@@ -46,13 +45,16 @@ typedef NSUInteger GSLayoutAttribute;
     NSMutableDictionary *viewIndexByViewHash;
     NSMutableDictionary *viewAlignmentRectByViewIndex;
     NSMutableDictionary *constraintsByViewIndex;
+    NSMutableDictionary *internalConstraintsByViewIndex;
+    NSMapTable *supportingConstraintsByConstraint;
     int viewCounter;
 }
 
-- (instancetype)init {
+-(instancetype)initWithSolver: (CSWSimplexSolver*)simplexSolver
+{
     if (self = [super init]) {
         viewCounter = 0;
-        solver = [[CSWSimplexSolver alloc] init];
+        solver = simplexSolver;
         trackedVariables = [NSMutableArray array];
         keypathByLayoutDynamicAttribute = @{
             @(GSLayoutViewAttributeBaselineOffsetFromBottom): @"baselineOffsetFromBottom",
@@ -71,6 +73,8 @@ typedef NSUInteger GSLayoutAttribute;
         trackedViews = [NSMutableArray array];
         [trackedViews retain];
 
+        supportingConstraintsByConstraint = [NSMapTable strongToStrongObjectsMapTable];
+
         viewAlignmentRectByViewIndex = [NSMutableDictionary dictionary];
         [viewAlignmentRectByViewIndex retain];
 
@@ -80,10 +84,17 @@ typedef NSUInteger GSLayoutAttribute;
         constraintsByViewIndex = [NSMutableDictionary dictionary];
         [constraintsByViewIndex retain];
         
+        internalConstraintsByViewIndex = [NSMutableDictionary dictionary];
+        
         NSArray *layoutDynamicAttributes = [keypathByLayoutDynamicAttribute allKeys];
         layoutDynamicAttributeByKeypath = [NSDictionary dictionaryWithObjects:layoutDynamicAttributes forKeys:[keypathByLayoutDynamicAttribute allValues]];
     }
     return self;
+}
+
+- (instancetype)init {
+    CSWSimplexSolver *solver = [[CSWSimplexSolver alloc] init];
+    return [self initWithSolver: solver];
 }
 
 -(void)resolveVariables {
@@ -275,14 +286,15 @@ typedef NSUInteger GSLayoutAttribute;
 
 -(void)addConstraint:(NSLayoutConstraint*)constraint
 {
-    [self addSupportingInternalConstraintsToView:[constraint firstItem] forAttribute:[constraint firstAttribute]];
-    
-    if ([constraint secondItem]) {
-        [self addSupportingInternalConstraintsToView:[constraint secondItem] forAttribute:[constraint secondAttribute]];
-    }
-    
     CSWConstraint *solverConstraint = [self solverConstraintForConstraint: constraint];
     [constraintsByAutoLayoutConstaintHash setObject: solverConstraint forKey: constraint];
+
+    [self addSupportingInternalConstraintsToView:[constraint firstItem] forAttribute:[constraint firstAttribute] constraint: solverConstraint];
+    
+    if ([constraint secondItem]) {
+        [self addSupportingInternalConstraintsToView:[constraint secondItem] forAttribute:[constraint secondAttribute] constraint: solverConstraint];
+    }
+    
     [self addObserverToConstraint:constraint];
     
     @try {
@@ -315,11 +327,19 @@ typedef NSUInteger GSLayoutAttribute;
      [constraintsForView removeObjectAtIndex: indexOfConstraint];
 }
 
--(void)addSupportingInternalConstraintsToView: (NSView*)view forAttribute: (NSLayoutAttribute)attribute
+-(BOOL)hasAddedWidthAndHeightConstraintsToView: (NSView*)view
 {
-    if ([self indexForView: view] == nil) {
+    NSNumber *viewIndex = [self indexForView: view];
+    NSNumber *added = internalConstraintsByViewIndex[viewIndex];
+    return added != nil;
+}
+
+-(void)addSupportingInternalConstraintsToView: (NSView*)view forAttribute: (NSLayoutAttribute)attribute constraint: (CSWConstraint*)constraint
+{
+    if (![self hasAddedWidthAndHeightConstraintsToView: view]) {
         [self addInternalWidthConstraintForView: view];
         [self addInternalHeightConstraintForView: view];
+        [internalConstraintsByViewIndex setObject: [NSNumber numberWithBool: YES] forKey: [self indexForView: view]];
     }
 
     switch (attribute) {
@@ -336,10 +356,10 @@ typedef NSUInteger GSLayoutAttribute;
             [self addInternalTopBottomConstraintsForView: view];
             break;
         case NSLayoutAttributeCenterX:
-            [self addInternalCenterXConstraintsForView:view];
+            [self addInternalCenterXConstraintsForView:view constraint: constraint];
             break;
         case NSLayoutAttributeCenterY:
-            [self addInternalCenterYConstraintsForView:view];
+            [self addInternalCenterYConstraintsForView:view constraint: constraint];
             break;
         case NSLayoutAttributeBaseline:
             [self addInternalBaselineConstraintsForView:view];
@@ -415,7 +435,7 @@ typedef NSUInteger GSLayoutAttribute;
     [self addSolverConstraint:maxYTopRelationshipConstraint];
 }
 
--(void)addInternalCenterXConstraintsForView: (NSView*)view
+-(void)addInternalCenterXConstraintsForView: (NSView*)view constraint: (CSWConstraint*)constraint
 {
     CSWVariable *centerXVariable = [self variableForView:view andAttribute:GSLayoutAttributeCenterX];
     CSWVariable *width = [self variableForView:view andAttribute:GSLayoutAttributeWidth];
@@ -425,10 +445,10 @@ typedef NSUInteger GSLayoutAttribute;
     [exp addVariable: width coefficient: 0.5];
     CSWConstraint *centerXConstraint = [CSWConstraint constraintWithLeftVariable: centerXVariable operator: CSWConstraintOperatorEqual rightExpression: exp];
     
-    [self addSolverConstraint:centerXConstraint];
+    [self addSupportingSolverConstraint:centerXConstraint forSolverConstraint: constraint];
 }
 
--(void)addInternalCenterYConstraintsForView: (NSView*)view
+-(void)addInternalCenterYConstraintsForView: (NSView*)view constraint: (CSWConstraint*)constraint
 {
     CSWVariable *centerYVariable = [self variableForView:view andAttribute:GSLayoutAttributeCenterY];
     CSWVariable *height = [self variableForView: view andAttribute:GSLayoutAttributeHeight];
@@ -437,7 +457,7 @@ typedef NSUInteger GSLayoutAttribute;
     CSWLinearExpression *exp = [[CSWLinearExpression alloc] initWithVariable: minY];
     [exp addVariable: height coefficient: 0.5];
     CSWConstraint *centerYConstraint = [CSWConstraint constraintWithLeftVariable: centerYVariable operator: CSWConstraintOperatorEqual rightExpression: exp];
-    [self addSolverConstraint:centerYConstraint];
+    [self addSupportingSolverConstraint:centerYConstraint forSolverConstraint: constraint];
 }
 
 -(void)addInternalFirstBaselineConstraintsForView: (NSView*)view
@@ -789,6 +809,12 @@ typedef NSUInteger GSLayoutAttribute;
 
     [self removeObserverFromConstraint:constraint];
     [self removeSolverConstraint:kConstraint];
+
+    NSArray *internalConstraints = [supportingConstraintsByConstraint objectForKey: kConstraint];
+    for (CSWConstraint *internalConstraint in internalConstraints) {
+        [self removeSolverConstraint: internalConstraint];;
+    }
+    [supportingConstraintsByConstraint setObject: nil forKey: kConstraint];
     
     [self updateAlignmentRectsForTrackedViews];
     [self removeConstraintAgainstViewConstraintsArray: constraint];
@@ -812,6 +838,16 @@ typedef NSUInteger GSLayoutAttribute;
 -(void)debugSolver
 {
     NSLog(@"%@", solver);
+}
+
+-(void)addSupportingSolverConstraint: (CSWConstraint*)supportingConstraint forSolverConstraint: (CSWConstraint*)constraint
+{
+    [self addSolverConstraint: supportingConstraint];
+
+    if ([supportingConstraintsByConstraint objectForKey: constraint] == nil) {
+        [supportingConstraintsByConstraint setObject: [NSMutableArray array] forKey: constraint];
+    }
+    [[supportingConstraintsByConstraint objectForKey: constraint] addObject: supportingConstraint];
 }
 
 -(void)addSolverConstraint: (CSWConstraint*)constraint
