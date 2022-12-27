@@ -317,21 +317,20 @@ typedef NSUInteger GSLayoutAttribute;
         constraintsByViewIndex[firstItemViewIndex] = constraintsForView;
     }
     [constraintsForView addObject: constraint];
-}
 
--(void) removeConstraintAgainstViewConstraintsArray: (NSLayoutConstraint*)constraint
-{
-     NSNumber *firstItemViewIndex = [self indexForView: [constraint firstItem]];
-     NSMutableArray *constraintsForView = constraintsByViewIndex[firstItemViewIndex];
-
-     NSUInteger indexOfConstraint = [constraintsForView indexOfObject: constraint];
-     [constraintsForView removeObjectAtIndex: indexOfConstraint];
+    if ([constraint secondItem] != nil) {
+        NSNumber *secondItemViewIndex = [self indexForView: [constraint secondItem]];
+        if (constraintsByViewIndex[secondItemViewIndex] == nil) {
+            constraintsByViewIndex[secondItemViewIndex] = [NSMutableArray array];
+        }
+        [constraintsByViewIndex[secondItemViewIndex] addObject: constraint];
+    }
 }
 
 -(BOOL)hasAddedWidthAndHeightConstraintsToView: (NSView*)view
 {
     NSNumber *viewIndex = [self indexForView: view];
-    NSNumber *added = internalConstraintsByViewIndex[viewIndex];
+    NSArray *added = internalConstraintsByViewIndex[viewIndex];
     return added != nil;
 }
 
@@ -341,7 +340,6 @@ typedef NSUInteger GSLayoutAttribute;
         [self addInternalWidthConstraintForView: view];
         [self addInternalHeightConstraintForView: view];
         [self addIntrinsicContentSizeConstraintsToView: view];
-        [internalConstraintsByViewIndex setObject: [NSNumber numberWithBool: YES] forKey: [self indexForView: view]];
     }
 
     switch (attribute) {
@@ -389,7 +387,7 @@ typedef NSUInteger GSLayoutAttribute;
     [maxXMinusMinX addVariable: minX coefficient: -1];
     CSWConstraint *widthRelationshipToMaxXAndMinXConstraint = [CSWConstraint constraintWithLeftVariable: widthConstraintVariable operator: CSWConstraintOperatorEqual rightExpression: maxXMinusMinX];
     
-    [self addSolverConstraint:widthRelationshipToMaxXAndMinXConstraint];
+    [self addInternalSolverConstraint:widthRelationshipToMaxXAndMinXConstraint forView: view];
 }
 
 -(void)addInternalHeightConstraintForView: (NSView*)view
@@ -401,7 +399,20 @@ typedef NSUInteger GSLayoutAttribute;
     CSWLinearExpression *maxYMinusMinY = [[CSWLinearExpression alloc] initWithVariable: maxY];
     [maxYMinusMinY addVariable: minY coefficient: -1];
     CSWConstraint *heightConstraint = [CSWConstraint constraintWithLeftVariable: heightConstraintVariable operator:CSWConstraintOperatorEqual rightExpression: maxYMinusMinY];
-    [self addSolverConstraint:heightConstraint];
+    
+    [self addInternalSolverConstraint:heightConstraint forView: view];
+}
+
+-(void)addInternalSolverConstraint: (CSWConstraint*)constraint forView: (NSView*)view
+{
+    [self addSolverConstraint:constraint];
+
+    NSNumber *viewIndex = [self indexForView: view];
+    NSArray *internalViewConstraints = internalConstraintsByViewIndex[viewIndex];
+    if (internalViewConstraints == nil) {
+        internalConstraintsByViewIndex[viewIndex] = [NSMutableArray array];
+    }
+    [internalConstraintsByViewIndex[viewIndex] addObject: constraint];
 }
 
 -(void)addInternalLeadingConstraintForView: (NSView*)view constraint: (CSWConstraint*)constraint
@@ -835,7 +846,47 @@ typedef NSUInteger GSLayoutAttribute;
     [self updateAlignmentRectsForTrackedViews];
     [self removeConstraintAgainstViewConstraintsArray: constraint];
 
+    if ([self hasConstraintsForView: [constraint firstItem]]) {
+        [self removeInternalConstraintsForView: [constraint firstItem]];
+    }
+    if ([constraint secondItem] != nil && [self hasConstraintsForView: [constraint secondItem]]) {
+        [self removeInternalConstraintsForView:[constraint secondItem]];
+    }
+
     // TODO clean up observers of any dynamic attributes that relate to constraint
+}
+
+-(BOOL)hasConstraintsForView: (NSView*)view
+{
+    NSNumber *viewIndex = [self indexForView: view];
+    return [constraintsByViewIndex[viewIndex] count] == 0;
+}
+
+-(void) removeConstraintAgainstViewConstraintsArray: (NSLayoutConstraint*)constraint
+{
+    NSNumber *firstItemViewIndex = [self indexForView: [constraint firstItem]];
+    NSMutableArray *constraintsForFirstItem = constraintsByViewIndex[firstItemViewIndex];
+
+    NSUInteger indexOfConstraintInFirstItem = [constraintsForFirstItem indexOfObject: constraint];
+    [constraintsForFirstItem removeObjectAtIndex: indexOfConstraintInFirstItem];
+
+    if ([constraint secondItem] != nil) {
+        NSNumber *secondItemViewIndexIndex = [self indexForView: [constraint secondItem]];
+        NSMutableArray *constraintsForSecondItem = constraintsByViewIndex[secondItemViewIndexIndex];
+
+        NSUInteger indexOfConstraintInSecondItem = [constraintsForSecondItem indexOfObject: constraint];
+        [constraintsForSecondItem removeObjectAtIndex: indexOfConstraintInSecondItem];
+    }
+}
+
+-(void)removeInternalConstraintsForView: (NSView*)view
+{
+    NSNumber *viewIndex = [self indexForView: view];
+    for (CSWConstraint *constraint in internalConstraintsByViewIndex[viewIndex]) {
+        [self removeSolverConstraint: constraint];
+    }
+
+    internalConstraintsByViewIndex[viewIndex] = nil;
 }
 
 -(void)removeConstraints: (NSArray*)constraints
@@ -885,7 +936,14 @@ typedef NSUInteger GSLayoutAttribute;
         return [NSArray array];
     }
 
-    return [constraintsByViewIndex[viewIndex] copy];
+    NSMutableArray *constraintsForView = [NSMutableArray array];
+    for (NSLayoutConstraint *constraint in constraintsByViewIndex[viewIndex]) {
+        if ([constraint firstItem] == view) {
+            [constraintsForView addObject: constraint];
+        }
+    }
+    
+    return constraintsForView;
 }
 
 - (void)dealloc {
