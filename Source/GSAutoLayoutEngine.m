@@ -46,6 +46,7 @@ typedef NSUInteger GSLayoutAttribute;
     NSMutableDictionary *viewAlignmentRectByViewIndex;
     NSMutableDictionary *constraintsByViewIndex;
     NSMutableDictionary *internalConstraintsByViewIndex;
+    NSMapTable *observersByConstriant;
     NSMapTable *supportingConstraintsByConstraint;
     int viewCounter;
 }
@@ -83,7 +84,10 @@ typedef NSUInteger GSLayoutAttribute;
 
         constraintsByViewIndex = [NSMutableDictionary dictionary];
         [constraintsByViewIndex retain];
-      
+
+        observersByConstriant = [NSMapTable strongToStrongObjectsMapTable];
+        [observersByConstriant retain];
+        
         internalConstraintsByViewIndex = [NSMutableDictionary dictionary];
         
         NSArray *layoutDynamicAttributes = [keypathByLayoutDynamicAttribute allKeys];
@@ -545,16 +549,18 @@ typedef NSUInteger GSLayoutAttribute;
 
     NSString *keypath = keypathByLayoutDynamicAttribute[@(attribute)];
     [view addObserver:self forKeyPath:keypath options:NSKeyValueObservingOptionNew context:nil];
+    if ([observersByConstriant objectForKey: constraint] == nil) {
+        [observersByConstriant setObject: [NSMutableArray array] forKey: constraint];
+    }
+    [[observersByConstriant objectForKey: constraint] addObject: @{
+        @"keyPath": keypath,
+        @"view": view
+    }];
 }
 
 -(void)addObserverToConstraint: (NSLayoutConstraint*)constranit
 {
     [constranit addObserver:self forKeyPath:@"constant" options:NSKeyValueObservingOptionNew context:nil];
-}
-
--(void)removeObserverFromConstraint: (NSLayoutConstraint*)constraint
-{
-    [constraint removeObserver:self forKeyPath:@"constant"];
 }
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context {
@@ -819,19 +825,19 @@ typedef NSUInteger GSLayoutAttribute;
 
 -(void)removeConstraint: (NSLayoutConstraint*)constraint
 {
-    CSWConstraint *kConstraint = [self getExistingConstraintForAutolayoutConstraint:constraint];
-    if (kConstraint == nil) {
+    CSWConstraint *solverConstraint = [self getExistingConstraintForAutolayoutConstraint:constraint];
+    if (solverConstraint == nil) {
         return;
     }
 
-    [self removeObserverFromConstraint:constraint];
-    [self removeSolverConstraint:kConstraint];
+    [self removeObserversFromConstraint:constraint];
+    [self removeSolverConstraint:solverConstraint];
 
-    NSArray *internalConstraints = [supportingConstraintsByConstraint objectForKey: kConstraint];
+    NSArray *internalConstraints = [supportingConstraintsByConstraint objectForKey: solverConstraint];
     for (CSWConstraint *internalConstraint in internalConstraints) {
         [self removeSolverConstraint: internalConstraint];;
     }
-    [supportingConstraintsByConstraint setObject: nil forKey: kConstraint];
+    [supportingConstraintsByConstraint setObject: nil forKey: solverConstraint];
     
     [self updateAlignmentRectsForTrackedViews];
     [self removeConstraintAgainstViewConstraintsArray: constraint];
@@ -875,8 +881,20 @@ typedef NSUInteger GSLayoutAttribute;
     for (CSWConstraint *constraint in internalConstraintsByViewIndex[viewIndex]) {
         [self removeSolverConstraint: constraint];
     }
-
     internalConstraintsByViewIndex[viewIndex] = nil;
+}
+
+-(void)removeObserversFromConstraint: (NSLayoutConstraint*)constraint
+{
+    [constraint removeObserver:self forKeyPath:@"constant"];
+    CSWConstraint *solverConstraint = [self getExistingConstraintForAutolayoutConstraint:constraint];
+    if ([observersByConstriant objectForKey: solverConstraint] == nil) {
+        return;
+    }
+    for (NSDictionary *observer in [observersByConstriant objectForKey: solverConstraint]) {
+        [observer[@"view"] removeObserver: self forKeyPath: observer[@"keyPath"]];
+    }
+    [observersByConstriant setObject: nil forKey: solverConstraint];
 }
 
 -(void)removeConstraints: (NSArray*)constraints
