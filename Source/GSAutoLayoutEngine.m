@@ -83,7 +83,7 @@ typedef NSUInteger GSLayoutAttribute;
 
         constraintsByViewIndex = [NSMutableDictionary dictionary];
         [constraintsByViewIndex retain];
-        
+      
         internalConstraintsByViewIndex = [NSMutableDictionary dictionary];
         
         NSArray *layoutDynamicAttributes = [keypathByLayoutDynamicAttribute allKeys];
@@ -95,24 +95,6 @@ typedef NSUInteger GSLayoutAttribute;
 - (instancetype)init {
     CSWSimplexSolver *solver = [[CSWSimplexSolver alloc] init];
     return [self initWithSolver: solver];
-}
-
--(void)addEditConstraintForView: (NSView*)view attribute: (GSLayoutViewAttribute)attribute constraint: (CSWConstraint*)constraint
-{
-    CSWVariable *variable = [self getExistingVariableForView:view withVariable:attribute];
-    CSWConstraint *editConstraint = [CSWConstraint editConstraintWithVariable:variable];
-
-    if (attribute == GSLayoutViewAttributeBaselineOffsetFromBottom) {
-        [self addSupportingSolverConstraint: editConstraint forSolverConstraint:constraint];
-    } else if (attribute == GSLayoutViewAttributeFirstBaselineOffsetFromTop) {
-        [self addSupportingSolverConstraint: editConstraint forSolverConstraint: constraint];
-    } else if (attribute == GSLayoutViewAttributeIntrinsicWidth) {
-        [solver addConstraint:editConstraint];
-    } else if (attribute == GSLayoutViewAttributeInstrinctHeight) {
-        [solver addConstraint:editConstraint];
-    }
-    
-    [self resolveVariableForView: view attribute: attribute];
 }
 
 -(void)resolveVariableForView: (NSView*)view attribute: (GSLayoutViewAttribute)attribute
@@ -532,19 +514,23 @@ typedef NSUInteger GSLayoutAttribute;
 -(void)addSupportingInstrictSizeConstraintsToView: (NSView*)view orientation: (NSLayoutConstraintOrientation)orientation instrinctSizeAttribute: (GSLayoutViewAttribute)instrinctSizeAttribute dimensionAttribute: (GSLayoutAttribute)dimensionAttribute {
     CSWVariable *instrinctContentDimension = [self variableForView:view andViewAttribute:instrinctSizeAttribute];
     CSWVariable *dimensionVariable = [self variableForView:view andAttribute:dimensionAttribute];
-    [self addEditConstraintForView:view attribute:instrinctSizeAttribute constraint: nil];
+
+    CSWVariable *instrinctSizeVariable = [self getExistingVariableForView:view withVariable:instrinctSizeAttribute];
+    CSWConstraint *instrinctSizeConstraint = [CSWConstraint editConstraintWithVariable:instrinctSizeVariable];
+    [self addInternalSolverConstraint:instrinctSizeConstraint forView: view];
+    [self resolveVariableForView: view attribute: instrinctSizeAttribute];
 
     double huggingPriority = [view contentHuggingPriorityForOrientation:orientation];
     CSWConstraint *huggingConstraint = [CSWConstraint constraintWithLeftVariable: dimensionVariable operator: CSWConstraintOperatorLessThanOrEqual rightVariable: instrinctContentDimension];
     huggingConstraint.strength = [[CSWStrength alloc] initWithName:nil strength:huggingPriority];
 
-    [self addSolverConstraint:huggingConstraint];
+    [self addInternalSolverConstraint:huggingConstraint forView: view];
     
     double compressionPriority = [view contentCompressionResistancePriorityForOrientation:orientation];
     CSWConstraint *compressionConstraint = [CSWConstraint constraintWithLeftVariable: dimensionVariable operator: CSWConstraintOperationGreaterThanOrEqual rightVariable: instrinctContentDimension];
     compressionConstraint.strength = [[CSWStrength alloc] initWithName:nil strength:compressionPriority];
 
-    [self addSolverConstraint:compressionConstraint];
+    [self addInternalSolverConstraint:compressionConstraint forView: view];
 }
 
 /**
@@ -552,7 +538,11 @@ typedef NSUInteger GSLayoutAttribute;
  */
 -(void)resolveAndObserveViewAttribute: (GSLayoutViewAttribute)attribute view: (NSView*)view constraint: (CSWConstraint*)constraint
 {
-    [self addEditConstraintForView:view attribute:attribute constraint: constraint];
+    CSWVariable *variable = [self getExistingVariableForView:view withVariable:attribute];
+    CSWConstraint *editConstraint = [CSWConstraint editConstraintWithVariable:variable];
+    [self addSupportingSolverConstraint: editConstraint forSolverConstraint: constraint];
+    [self resolveVariableForView: view attribute: attribute];
+
     NSString *keypath = keypathByLayoutDynamicAttribute[@(attribute)];
     [view addObserver:self forKeyPath:keypath options:NSKeyValueObservingOptionNew context:nil];
 }
