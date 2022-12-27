@@ -660,6 +660,15 @@ Layout
 -(void)setNeedsLayout: (BOOL)needsLayout;
 #endif
 
+extern const CGFloat NSViewNoInstrinsicMetric;
+extern const CGFloat NSViewNoIntrinsicMetric;
+
+#if GS_HAS_DECLARED_PROPERTIES
+@property (readonly) NSSize intrinsicContentSize;
+#else
+-(NSSize)intrinsicContentSize;
+#endif
+
 -(GSAutoLayoutEngine*)_layoutEngine;
 -(void)_setLayoutEngine: (GSAutoLayoutEngine*)engine;
 

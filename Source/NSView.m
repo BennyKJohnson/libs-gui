@@ -121,7 +121,10 @@ NSView *viewIsPrinting = nil;
 
   </unit>
 */
-  
+
+const CGFloat NSViewNoInstrinsicMetric = -1;
+const CGFloat NSViewNoIntrinsicMetric = -1;
+
 @implementation NSView
 
 /*
@@ -5184,6 +5187,11 @@ static NSView* findByTag(NSView *view, NSInteger aTag, NSUInteger *level)
     NSRect calculatedViewFrame = [engine alignmentRectForView: subView];
     [subView setFrame: calculatedViewFrame];
   }
+}
+
+-(NSSize)intrinsicContentSize
+{
+  return NSMakeSize(NSViewNoIntrinsicMetric, NSViewNoIntrinsicMetric);
 }
 
 - (void)_setLayoutEngine: (GSAutoLayoutEngine*)engine
