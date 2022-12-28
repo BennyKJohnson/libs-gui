@@ -38,7 +38,6 @@ typedef NSUInteger GSLayoutAttribute;
     NSMapTable *variablesByKey;
     NSMutableArray *solverConstraints;
     NSMapTable *constraintsByAutoLayoutConstaintHash;
-    NSMutableArray *trackedVariables;
     NSMutableArray *trackedViews;
     NSMutableDictionary *viewIndexByViewHash;
     NSMutableDictionary *viewAlignmentRectByViewIndex;
@@ -53,11 +52,13 @@ typedef NSUInteger GSLayoutAttribute;
     if (self = [super init]) {
         viewCounter = 0;
         solver = simplexSolver;
-        trackedVariables = [NSMutableArray array];
   
+        // Stores a solver variable against an identifier so it can be looked up later and not recreated
         variablesByKey = [NSMapTable strongToStrongObjectsMapTable];
+        [variablesByKey retain];
 
         constraintsByAutoLayoutConstaintHash = [NSMapTable strongToStrongObjectsMapTable];
+        [constraintsByAutoLayoutConstaintHash retain];
 
         solverConstraints = [NSMutableArray array];
         [solverConstraints retain];
@@ -66,6 +67,7 @@ typedef NSUInteger GSLayoutAttribute;
         [trackedViews retain];
 
         supportingConstraintsByConstraint = [NSMapTable strongToStrongObjectsMapTable];
+        [supportingConstraintsByConstraint retain];
 
         viewAlignmentRectByViewIndex = [NSMutableDictionary dictionary];
         [viewAlignmentRectByViewIndex retain];
@@ -77,6 +79,7 @@ typedef NSUInteger GSLayoutAttribute;
         [constraintsByViewIndex retain];
         
         internalConstraintsByViewIndex = [NSMutableDictionary dictionary];
+        [internalConstraintsByViewIndex retain];
     }
     return self;
 }
@@ -204,14 +207,14 @@ typedef NSUInteger GSLayoutAttribute;
     
     NSRect newAlignmentRect = [self _solverAlignmentRectForView:view];
     NSValue *newRectValue = [NSValue valueWithRect:newAlignmentRect];
-    [viewAlignmentRectByViewIndex setObject:newRectValue forKey:viewIndex];\
+    [viewAlignmentRectByViewIndex setObject:newRectValue forKey:viewIndex];
     return newAlignmentRect;
 }
 
 -(NSRect)currentAlignmentRectForViewAtIndex: (NSNumber*)viewIndex
 {
     NSValue *existingRectValue = [viewAlignmentRectByViewIndex objectForKey:viewIndex];
-    if (!existingRectValue) {
+    if (existingRectValue == nil) {
         return NSMakeRect(-1, -1, -1, -1);
     }
     NSRect existingAlignmentRect;
@@ -511,13 +514,13 @@ typedef NSUInteger GSLayoutAttribute;
 
     double huggingPriority = [view contentHuggingPriorityForOrientation:orientation];
     CSWConstraint *huggingConstraint = [CSWConstraint constraintWithLeftVariable: dimensionVariable operator: CSWConstraintOperatorLessThanOrEqual rightVariable: instrinctContentDimension];
-    huggingConstraint.strength = [[CSWStrength alloc] initWithName:nil strength:huggingPriority];
+    huggingConstraint.strength = [[[CSWStrength alloc] initWithName:nil strength:huggingPriority] autorelease];
 
     [self addInternalSolverConstraint:huggingConstraint forView: view];
     
     double compressionPriority = [view contentCompressionResistancePriorityForOrientation:orientation];
     CSWConstraint *compressionConstraint = [CSWConstraint constraintWithLeftVariable: dimensionVariable operator: CSWConstraintOperationGreaterThanOrEqual rightVariable: instrinctContentDimension];
-    compressionConstraint.strength = [[CSWStrength alloc] initWithName:nil strength:compressionPriority];
+    compressionConstraint.strength = [[[CSWStrength alloc] initWithName:nil strength:compressionPriority] autorelease];
 
     [self addInternalSolverConstraint:compressionConstraint forView: view];
 }
@@ -582,6 +585,8 @@ typedef NSUInteger GSLayoutAttribute;
     }
 }
 
+// Variable Management
+
 -(CSWVariable*)getExistingVariableForView:(NSView*)view withAttribute: (GSLayoutAttribute)attribute
 {
     NSString *variableIdentifier = [self getVariableIdentifierForView: view withAttribute: (GSLayoutAttribute)attribute];
@@ -610,12 +615,6 @@ typedef NSUInteger GSLayoutAttribute;
 {
     NSString *variableIdentifier = [self getDynamicVariableIdentifierForView:view withViewAttribute:attribute];
     CSWVariable *variable = [self createVariableWithName:variableIdentifier];
-
-    NSDictionary *trackedVariable = @{
-        @"view" : view,
-        @"attribute" : [NSNumber numberWithInteger: attribute],
-    };
-    [trackedVariables addObject:trackedVariable];
     
     return variable;
 }
@@ -710,6 +709,7 @@ typedef NSUInteger GSLayoutAttribute;
                 exceptionWithName:@"GSLayoutViewAttribute Not handled"
                 reason:@"The provided GSLayoutViewAttribute does not have a name"
                 userInfo:nil] raise];
+            return nil;
     }
 }
 
@@ -897,7 +897,7 @@ typedef NSUInteger GSLayoutAttribute;
 {
     [solver removeConstraint: constraint];
     [solverConstraints removeObject: constraint];
-    // dealoc constraint
+    [constraint release];
 }
 
 -(NSArray*)constraintsForView: (NSView*)view
@@ -919,22 +919,35 @@ typedef NSUInteger GSLayoutAttribute;
 
 - (void)dealloc {
    [trackedViews release];
+   trackedViews = nil;
+
    [viewAlignmentRectByViewIndex release];
-   [viewIndexByViewHash release];
-   [constraintsByViewIndex release];
+   viewAlignmentRectByViewIndex = nil;
+
+    [viewIndexByViewHash release];
+    viewIndexByViewHash = nil;
+
+    [constraintsByViewIndex release];
+    constraintsByViewIndex = nil;
+
+    [supportingConstraintsByConstraint release];
+    supportingConstraintsByConstraint = nil;
+
+    [constraintsByAutoLayoutConstaintHash release];
+    constraintsByAutoLayoutConstaintHash = nil;
+
+    [internalConstraintsByViewIndex release];
+    internalConstraintsByViewIndex = nil;
+
+    [solverConstraints release];
+    solverConstraints = nil;
+
+    [variablesByKey release];
+    variablesByKey = nil;
 
     [solver dealloc];
-    [self deallocSolverVariables];
-    [self deallocSolverConstraints];
+
     [super dealloc];
-}
-
--(void)deallocSolverVariables
-{
-}
-
--(void)deallocSolverConstraints
-{
 }
 
 @end
