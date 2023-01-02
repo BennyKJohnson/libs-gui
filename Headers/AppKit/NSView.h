@@ -648,7 +648,7 @@ PACKAGE_SCOPE
 /**
 Layout
 */
-
+- (void)invalidateIntrinsicContentSize;
 - (void)layoutSubtreeIfNeeded;
 - (void)layout;
 - (void)_initializeLayoutEngine;

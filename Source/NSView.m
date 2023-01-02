@@ -5189,6 +5189,15 @@ static NSView* findByTag(NSView *view, NSInteger aTag, NSUInteger *level)
   }
 }
 
+-(void)invalidateIntrinsicContentSize
+{
+  GSAutoLayoutEngine *engine = [self.window _layoutEngine];
+  if (!engine) {
+    return;
+  }
+  [engine invalidateIntrinsicConentSizeForView: self];
+}
+
 -(NSSize)intrinsicContentSize
 {
   return NSMakeSize(NSViewNoIntrinsicMetric, NSViewNoIntrinsicMetric);

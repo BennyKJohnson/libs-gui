@@ -24,6 +24,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 -(void)debugSolver;
 
+-(void)invalidateIntrinsicConentSizeForView: (NSView*)view;
+
 @end
 
 NS_ASSUME_NONNULL_END

@@ -1,6 +1,7 @@
 #import "GSAutoLayoutEngine.h"
 #include "AppKit/NSLayoutConstraint.h"
 #include "CSWConstraint.h"
+#include "CSWSimplexSolverSolution.h"
 
 enum {
     GSLayoutViewAttributeBaselineOffsetFromBottom = 1,
@@ -42,7 +43,7 @@ typedef NSUInteger GSLayoutAttribute;
     NSMutableDictionary *viewIndexByViewHash;
     NSMutableDictionary *viewAlignmentRectByViewIndex;
     NSMutableDictionary *constraintsByViewIndex;
-    NSMutableDictionary *internalConstraintsByViewIndex;
+    NSMapTable *internalConstraintsByViewIndex;
     NSMapTable *supportingConstraintsByConstraint;
     int viewCounter;
 }
@@ -78,7 +79,7 @@ typedef NSUInteger GSLayoutAttribute;
         constraintsByViewIndex = [NSMutableDictionary dictionary];
         [constraintsByViewIndex retain];
         
-        internalConstraintsByViewIndex = [NSMutableDictionary dictionary];
+        internalConstraintsByViewIndex = [NSMapTable strongToStrongObjectsMapTable];
         [internalConstraintsByViewIndex retain];
     }
     return self;
@@ -94,9 +95,7 @@ typedef NSUInteger GSLayoutAttribute;
     CSWVariable *editVariable = [self getExistingVariableForView:view withVariable:attribute];
     CGFloat value = [self valueForView: view attribute: attribute];
 
-    [solver suggestEditVariable:editVariable equals:value];
-    [solver resolve];
-    
+    [solver suggestEditVariable:editVariable equals:value];    
     [self updateAlignmentRectsForTrackedViews];
 }
 
@@ -119,17 +118,22 @@ typedef NSUInteger GSLayoutAttribute;
     }
 }
 
--(NSRect)_solverAlignmentRectForView:(NSView *)view
+-(NSRect)_solverAlignmentRectForView:(NSView *)view solution: (CSWSimplexSolverSolution*)solution
 {
     CSWVariable *minX = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeMinX];
     CSWVariable *minY = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeMinY];
     CSWVariable *width = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeWidth];
     CSWVariable *height = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeHeight];
 
-    return NSMakeRect([minX value], [minY value], [width value], [height value]);
+    return NSMakeRect(
+        [[solution resultForVariable: minX] floatValue],
+        [[solution resultForVariable: minY] floatValue],
+        [[solution resultForVariable: width] floatValue],
+        [[solution resultForVariable: height] floatValue]
+    );
 }
 
--(BOOL)_solverCanSolveAlignmentRectForView: (NSView*)view {
+-(BOOL)_solverCanSolveAlignmentRectForView: (NSView*)view solution: (CSWSimplexSolverSolution*)solution {
     CSWVariable *minX = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeMinX];
     if (!minX) {
         return NO;
@@ -139,11 +143,11 @@ typedef NSUInteger GSLayoutAttribute;
         return NO;
     }
     CSWVariable *width = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeWidth];
-    if (!width || ![width value]) {
+    if (!width || ![[solution resultForVariable: width] floatValue]) {
         return NO;
     }
     CSWVariable *height = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeHeight];
-    if (!height || ![height value]) {
+    if (!height || ![[solution resultForVariable: height] floatValue]) {
         return NO;
     }
     
@@ -157,15 +161,14 @@ typedef NSUInteger GSLayoutAttribute;
 
 -(void)updateAlignmentRectsForTrackedViews
 {
-    [solver solve];
-    [solver resolve];
+    CSWSimplexSolverSolution *solution = [solver solve];
     NSMutableArray *viewsWithChanges = [NSMutableArray array];
     for (NSView *view in trackedViews) {
         NSNumber *viewIndex = [self indexForView:view];
-        if ([self _solverCanSolveAlignmentRectForView: view]) {
+        if ([self _solverCanSolveAlignmentRectForView: view solution: solution]) {
             NSRect existingAlignmentRect = [self currentAlignmentRectForViewAtIndex:viewIndex];
             BOOL isExistingAlignmentRect = [self isValidNSRect: existingAlignmentRect];
-            NSRect solverAlignmentRect = [self _solverAlignmentRectForView:view];
+            NSRect solverAlignmentRect = [self _solverAlignmentRectForView:view solution: solution];
             [self recordAlignmentRect:solverAlignmentRect forViewIndex:viewIndex];
             
             if (isExistingAlignmentRect == NO || !NSEqualRects(solverAlignmentRect, existingAlignmentRect)) {
@@ -195,20 +198,6 @@ typedef NSUInteger GSLayoutAttribute;
 {
     NSValue *newRectValue = [NSValue valueWithRect:alignmentRect];
     [viewAlignmentRectByViewIndex setObject:newRectValue forKey:viewIndex];
-}
-
--(NSRect)getExistingAlignmentRectFromForViewOrDetermineFromSolver: (NSView*)view
-{
-    NSNumber *viewIndex = [self indexForView:view];
-    NSRect existingRect = [self currentAlignmentRectForViewAtIndex:viewIndex];
-    if (!NSIsEmptyRect(existingRect)) {
-        return existingRect;
-    }
-    
-    NSRect newAlignmentRect = [self _solverAlignmentRectForView:view];
-    NSValue *newRectValue = [NSValue valueWithRect:newAlignmentRect];
-    [viewAlignmentRectByViewIndex setObject:newRectValue forKey:viewIndex];
-    return newAlignmentRect;
 }
 
 -(NSRect)currentAlignmentRectForViewAtIndex: (NSNumber*)viewIndex
@@ -303,8 +292,7 @@ typedef NSUInteger GSLayoutAttribute;
 
 -(BOOL)hasAddedWidthAndHeightConstraintsToView: (NSView*)view
 {
-    NSNumber *viewIndex = [self indexForView: view];
-    NSArray *added = internalConstraintsByViewIndex[viewIndex];
+    NSArray *added = [internalConstraintsByViewIndex objectForKey: view];
     return added != nil;
 }
 
@@ -381,12 +369,11 @@ typedef NSUInteger GSLayoutAttribute;
 {
     [self addSolverConstraint:constraint];
 
-    NSNumber *viewIndex = [self indexForView: view];
-    NSArray *internalViewConstraints = internalConstraintsByViewIndex[viewIndex];
+    NSArray *internalViewConstraints = [internalConstraintsByViewIndex objectForKey: view];
     if (internalViewConstraints == nil) {
-        internalConstraintsByViewIndex[viewIndex] = [NSMutableArray array];
+        [internalConstraintsByViewIndex setObject: [NSMutableArray array] forKey: view];
     }
-    [internalConstraintsByViewIndex[viewIndex] addObject: constraint];
+    [[internalConstraintsByViewIndex objectForKey: view] addObject: constraint];
 }
 
 -(void)addInternalLeadingConstraintForView: (NSView*)view constraint: (CSWConstraint*)constraint
@@ -848,11 +835,10 @@ typedef NSUInteger GSLayoutAttribute;
 
 -(void)removeInternalConstraintsForView: (NSView*)view
 {
-    NSNumber *viewIndex = [self indexForView: view];
-    for (CSWConstraint *constraint in internalConstraintsByViewIndex[viewIndex]) {
+    for (CSWConstraint *constraint in [internalConstraintsByViewIndex objectForKey: view]) {
         [self removeSolverConstraint: constraint];
     }
-    internalConstraintsByViewIndex[viewIndex] = nil;
+    [internalConstraintsByViewIndex setObject: nil forKey: view];
 }
 
 -(void)removeObserversFromConstraint: (NSLayoutConstraint*)constraint
@@ -915,6 +901,13 @@ typedef NSUInteger GSLayoutAttribute;
     }
     
     return constraintsForView;
+}
+
+-(void)invalidateIntrinsicConentSizeForView: (NSView*)view
+{
+    // TODO Remove constraint if there is no metric for a dimension
+    [self resolveVariableForView: view attribute: GSLayoutViewAttributeIntrinsicWidth];
+    [self resolveVariableForView: view attribute: GSLayoutViewAttributeInstrinctHeight];
 }
 
 - (void)dealloc {
