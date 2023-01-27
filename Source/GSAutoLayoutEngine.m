@@ -39,6 +39,7 @@ typedef NSUInteger GSLayoutAttribute;
     NSMapTable *variablesByKey;
     NSMutableArray *solverConstraints;
     NSMapTable *constraintsByAutoLayoutConstaintHash;
+    NSMapTable *layoutConstraintsBySolverConstraint;
     NSMutableArray *trackedViews;
     NSMutableDictionary *viewIndexByViewHash;
     NSMutableDictionary *viewAlignmentRectByViewIndex;
@@ -60,6 +61,9 @@ typedef NSUInteger GSLayoutAttribute;
 
         constraintsByAutoLayoutConstaintHash = [NSMapTable strongToStrongObjectsMapTable];
         [constraintsByAutoLayoutConstaintHash retain];
+
+        layoutConstraintsBySolverConstraint = [NSMapTable strongToStrongObjectsMapTable];
+        [layoutConstraintsBySolverConstraint retain];
 
         solverConstraints = [NSMutableArray array];
         [solverConstraints retain];
@@ -251,7 +255,7 @@ typedef NSUInteger GSLayoutAttribute;
 -(void)addConstraint:(NSLayoutConstraint*)constraint
 {
     CSWConstraint *solverConstraint = [self solverConstraintForConstraint: constraint];
-    [constraintsByAutoLayoutConstaintHash setObject: solverConstraint forKey: constraint];
+    [self mapLayoutConstraint: constraint toSolverConstraint: solverConstraint];
 
     [self addSupportingInternalConstraintsToView:[constraint firstItem] forAttribute:[constraint firstAttribute] constraint: solverConstraint];
     
@@ -539,7 +543,7 @@ typedef NSUInteger GSLayoutAttribute;
     [self removeSolverConstraint:kConstraint];
     
     CSWConstraint *newKConstraint = [self solverConstraintForConstraint:constraint];
-    [constraintsByAutoLayoutConstaintHash setObject: newKConstraint forKey: constraint];
+    [self mapLayoutConstraint: constraint toSolverConstraint: newKConstraint];
     [self addSolverConstraint:newKConstraint];
 
     [self updateAlignmentRectsForTrackedViews];
@@ -550,6 +554,12 @@ typedef NSUInteger GSLayoutAttribute;
     for (id constraint in constraints) {
         [self addConstraint:constraint];
     }
+}
+
+-(void)mapLayoutConstraint: (NSLayoutConstraint*)layoutConstraint toSolverConstraint: (CSWConstraint*)solverConstraint
+{
+    [constraintsByAutoLayoutConstaintHash setObject: solverConstraint forKey: layoutConstraint];
+    [layoutConstraintsBySolverConstraint setObject: layoutConstraint forKey: solverConstraint];
 }
 
 -(CSWVariable*)variableForView:(NSView*)view andAttribute: (GSLayoutAttribute)attribute
@@ -908,6 +918,42 @@ typedef NSUInteger GSLayoutAttribute;
     // TODO Remove constraint if there is no metric for a dimension
     [self resolveVariableForView: view attribute: GSLayoutViewAttributeIntrinsicWidth];
     [self resolveVariableForView: view attribute: GSLayoutViewAttributeInstrinctHeight];
+}
+
+- (NSArray*)constraintsAffectingVerticalOrientationForView:(NSView *)view {
+    CSWVariable *minY = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeMinY];
+    NSArray *yConstraints = [solver constraintsAffectingVariable: minY];
+    CSWVariable *height = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeHeight];
+    NSArray *heightConstraints = [solver constraintsAffectingVariable: height];
+    
+    return [self filterAndMapSolverConstraintsToLayoutConstraints:[yConstraints arrayByAddingObjectsFromArray: heightConstraints] view: view];
+}
+
+- (NSArray*)constraintsAffectingHorizontalOrientationForView:(NSView *)view {
+    CSWVariable *minX = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeMinX];
+    NSArray *xConstraints = [solver constraintsAffectingVariable: minX];
+    CSWVariable *width = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeWidth];
+    NSArray *widthConstraints = [solver constraintsAffectingVariable: width];
+    
+    NSArray *constraints = [xConstraints arrayByAddingObjectsFromArray: widthConstraints];
+    
+    return [self filterAndMapSolverConstraintsToLayoutConstraints:constraints view: view];
+}
+
+- (NSMutableArray *)filterAndMapSolverConstraintsToLayoutConstraints:(NSArray *)constraints view: (NSView*)view {
+    NSMutableArray *constraintsAffectingLayouts = [NSMutableArray array];
+    for (CSWConstraint *solverConstraint in constraints) {
+        NSLayoutConstraint *constraint = [layoutConstraintsBySolverConstraint objectForKey:solverConstraint];
+        if (constraint != nil && (![self isMinXOrYConstraint: constraint] || [constraint firstItem] == view) && ![constraintsAffectingLayouts containsObject: constraint]) {
+            [constraintsAffectingLayouts addObject: constraint];
+        }
+    }
+    return constraintsAffectingLayouts;
+}
+
+-(BOOL)isMinXOrYConstraint: (NSLayoutConstraint*)constraint
+{
+    return [constraint firstAttribute] == GSLayoutAttributeMinX || [constraint firstAttribute] == GSLayoutAttributeMinY;
 }
 
 - (void)dealloc {

@@ -1,5 +1,6 @@
 #import <Foundation/Foundation.h>
 #include "CSWSimplexSolver.h"
+#include "AppKit/NSLayoutConstraint.h"
 
 @class NSView;
 @class NSLayoutConstraint;
@@ -25,6 +26,10 @@ NS_ASSUME_NONNULL_BEGIN
 -(void)debugSolver;
 
 -(void)invalidateIntrinsicConentSizeForView: (NSView*)view;
+
+- (NSArray*)constraintsAffectingHorizontalOrientationForView:(NSView *)view;
+
+- (NSArray*)constraintsAffectingVerticalOrientationForView:(NSView *)view;
 
 @end
 

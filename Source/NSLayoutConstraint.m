@@ -729,6 +729,11 @@ NSString const *compressionPrioritiesKey = @"NSConstraintBasedLayoutLayering.com
     objc_setAssociatedObject(self, &huggingPrioritiesKey, prioritiesValue, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
+-(CGFloat)baselineOffsetFromBottom
+{
+  return 0;
+}
+
 @end
 
 @implementation NSWindow (NSConstraintBasedLayoutCoreMethods)
