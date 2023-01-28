@@ -869,6 +869,11 @@ NSString const *needsUpdateConstraintsKey = @"NSConstraintBasedLayoutCoreMethods
   }
 }
 
+-(BOOL)hasAmbiguousLayout
+{
+  return [_layoutEngine hasAmbiguousLayoutForView: self];
+}
+
 @end
 
 @implementation NSView (NSConstraintBasedLayoutInstallingConstraints)

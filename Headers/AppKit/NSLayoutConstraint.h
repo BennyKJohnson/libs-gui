@@ -219,6 +219,8 @@ APPKIT_EXPORT_CLASS
 
 -(NSArray*)constraintsAffectingLayoutForOrientation: (NSLayoutConstraintOrientation)orientation;
 
+-(BOOL)hasAmbiguousLayout;
+
 @end
 
 @interface NSView (NSConstraintBasedLayoutInstallingConstraints)
