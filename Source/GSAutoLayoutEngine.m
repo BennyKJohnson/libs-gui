@@ -956,6 +956,44 @@ typedef NSUInteger GSLayoutAttribute;
     return [constraint firstAttribute] == GSLayoutAttributeMinX || [constraint firstAttribute] == GSLayoutAttributeMinY;
 }
 
+-(BOOL)hasAmbiguousLayoutForView: (NSView*)view
+{
+    NSArray *solutions = [solver solveAll];
+    
+    CSWVariable *width = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeWidth];
+    if (width && [self isVariableAmbiguous: width solutions:solutions]) {
+        return YES;
+    }
+    CSWVariable *height = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeHeight];
+    if (height && [self isVariableAmbiguous: height solutions: solutions]) {
+        return YES;
+    }
+    CSWVariable *minX = [self getExistingVariableForView:view withAttribute:GSLayoutAttributeMinX];
+    if (minX && [self isVariableAmbiguous:minX  solutions: solutions]) {
+        return YES;
+    }
+    
+    CSWVariable *minY =  [self getExistingVariableForView:view withAttribute:GSLayoutAttributeMinY];
+    if (minY && [self isVariableAmbiguous:minY  solutions: solutions]) {
+        return YES;
+    }
+    
+    return NO;
+}
+
+-(BOOL)isVariableAmbiguous: (CSWVariable*)variable solutions: (NSArray*)solutions
+{
+    NSNumber *variableValue = [[solutions firstObject] resultForVariable:variable];
+    for (CSWSimplexSolverSolution *solution in [solutions subarrayWithRange:NSMakeRange(1, [solutions count] -1)]) {
+        BOOL variableIsAmbigous = [variableValue compare: [solution resultForVariable:variable]] != NSOrderedSame;
+        if (variableIsAmbigous) {
+            return YES;
+        }
+    }
+    
+    return NO;
+}
+
 - (void)dealloc {
    [trackedViews release];
    trackedViews = nil;

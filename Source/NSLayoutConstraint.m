@@ -734,6 +734,11 @@ NSString const *compressionPrioritiesKey = @"NSConstraintBasedLayoutLayering.com
   return 0;
 }
 
+-(CGFloat)firstBaselineOffsetFromTop
+{
+  return 0;
+}
+
 @end
 
 @implementation NSWindow (NSConstraintBasedLayoutCoreMethods)

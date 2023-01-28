@@ -31,6 +31,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (NSArray*)constraintsAffectingVerticalOrientationForView:(NSView *)view;
 
+-(BOOL)hasAmbiguousLayoutForView: (NSView*)view;
+
 @end
 
 NS_ASSUME_NONNULL_END
