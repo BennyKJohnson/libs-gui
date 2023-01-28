@@ -855,6 +855,15 @@ NSString const *needsUpdateConstraintsKey = @"NSConstraintBasedLayoutCoreMethods
   [self.superview setNeedsLayout: YES];
 }
 
+-(NSArray*)constraintsAffectingLayoutForOrientation: (NSLayoutConstraintOrientation)orientation
+{
+  if (orientation == NSLayoutConstraintOrientationHorizontal) {
+    return [_layoutEngine constraintsAffectingHorizontalOrientationForView: self];
+  } else {
+    return [_layoutEngine constraintsAffectingVerticalOrientationForView: self];
+  }
+}
+
 @end
 
 @implementation NSView (NSConstraintBasedLayoutInstallingConstraints)

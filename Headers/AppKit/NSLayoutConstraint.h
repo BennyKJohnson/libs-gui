@@ -209,13 +209,15 @@ APPKIT_EXPORT_CLASS
 
 @interface NSView (NSConstraintBasedLayoutCoreMethods)
 
+@property BOOL needsUpdateConstraints;
+
 - (void)updateConstraints;
 
 -(void) updateConstraintsForSubtreeIfNeeded;
 
 -(void)layoutEngineDidChangeAlignmentRect;
 
-@property BOOL needsUpdateConstraints;
+-(NSArray*)constraintsAffectingLayoutForOrientation: (NSLayoutConstraintOrientation)orientation;
 
 @end
 
