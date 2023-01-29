@@ -166,18 +166,32 @@ typedef NSUInteger GSLayoutAttribute;
 -(void)updateAlignmentRectsForTrackedViews
 {
     CSWSimplexSolverSolution *solution = [solver solve];
+    [self updateAlignmentRectsForTrackedViewsForSolution: solution];
+}
+
+- (BOOL)updateViewAligmentRect:(CSWSimplexSolverSolution *)solution view:(NSView *)view {
+    NSNumber *viewIndex = [self indexForView:view];
+    if ([self _solverCanSolveAlignmentRectForView: view solution: solution]) {
+        NSRect existingAlignmentRect = [self currentAlignmentRectForViewAtIndex:viewIndex];
+        BOOL isExistingAlignmentRect = [self isValidNSRect: existingAlignmentRect];
+        NSRect solverAlignmentRect = [self _solverAlignmentRectForView:view solution: solution];
+        [self recordAlignmentRect:solverAlignmentRect forViewIndex:viewIndex];
+        
+        if (isExistingAlignmentRect == NO || !NSEqualRects(solverAlignmentRect, existingAlignmentRect)) {
+            return YES;
+        }
+    }
+    
+    return NO;
+}
+
+-(void)updateAlignmentRectsForTrackedViewsForSolution: (CSWSimplexSolverSolution*)solution
+{
     NSMutableArray *viewsWithChanges = [NSMutableArray array];
     for (NSView *view in trackedViews) {
-        NSNumber *viewIndex = [self indexForView:view];
-        if ([self _solverCanSolveAlignmentRectForView: view solution: solution]) {
-            NSRect existingAlignmentRect = [self currentAlignmentRectForViewAtIndex:viewIndex];
-            BOOL isExistingAlignmentRect = [self isValidNSRect: existingAlignmentRect];
-            NSRect solverAlignmentRect = [self _solverAlignmentRectForView:view solution: solution];
-            [self recordAlignmentRect:solverAlignmentRect forViewIndex:viewIndex];
-            
-            if (isExistingAlignmentRect == NO || !NSEqualRects(solverAlignmentRect, existingAlignmentRect)) {
-                [viewsWithChanges addObject:view];
-            }
+        BOOL viewAlignmentRectUpdated = [self updateViewAligmentRect:solution view:view];
+        if (viewAlignmentRectUpdated) {
+            [viewsWithChanges addObject:view];
         }
     }
     
@@ -187,8 +201,13 @@ typedef NSUInteger GSLayoutAttribute;
 -(void)notifyViewsOfAlignmentRectChange: (NSArray*)viewsWithChanges
 {
     for (NSView *view in viewsWithChanges) {
-        [view layoutEngineDidChangeAlignmentRect];
+        [self notifyViewOfAlignmentRectChange:view];
     }
+}
+
+-(void)notifyViewOfAlignmentRectChange: (NSView*)view
+{
+    [view layoutEngineDidChangeAlignmentRect];
 }
 
 -(BOOL)hasExistingAlignmentRectForView: (NSView*)view
@@ -992,6 +1011,46 @@ typedef NSUInteger GSLayoutAttribute;
     }
     
     return NO;
+}
+
+-(void)exerciseAmbiguityInLayoutForView: (NSView*)view
+{
+    NSArray *solutions = [solver solveAll];
+    if ([solutions count] <= 1) {
+        return;
+    }
+    
+    if (![self hasExistingAlignmentRectForView:view]) {
+        return;
+    }
+    
+    int nextSolutionIndex = [self getIndexOfCurrentSolutionForView:view solutions:solutions] + 1;
+    if (nextSolutionIndex == [solutions count]) {
+        nextSolutionIndex = 0;
+    }
+    
+    BOOL alignmentRectUpdated = [self updateViewAligmentRect:solutions[nextSolutionIndex] view:view];
+    if (alignmentRectUpdated) {
+        [self notifyViewOfAlignmentRectChange:view];
+    }
+}
+
+-(int)getIndexOfCurrentSolutionForView: (NSView*)view solutions: (NSArray*)solutions
+{
+    NSNumber *viewIndex = [self indexForView:view];
+    NSRect existingAlignmentRect = [self currentAlignmentRectForViewAtIndex:viewIndex];
+
+    int index = 0;
+    for (CSWSimplexSolverSolution *solution in solutions) {
+        NSRect frameForSolution = [self _solverAlignmentRectForView: view solution: solution];
+        if (NSEqualRects(existingAlignmentRect, frameForSolution))
+        {
+            return index;
+        }
+        index++;
+    }
+    
+    return 0;
 }
 
 - (void)dealloc {
