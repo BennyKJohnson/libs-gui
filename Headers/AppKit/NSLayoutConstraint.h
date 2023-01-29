@@ -221,6 +221,8 @@ APPKIT_EXPORT_CLASS
 
 -(BOOL)hasAmbiguousLayout;
 
+-(void)exerciseAmbiguityInLayout;
+
 @end
 
 @interface NSView (NSConstraintBasedLayoutInstallingConstraints)
