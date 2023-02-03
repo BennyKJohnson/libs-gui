@@ -14,21 +14,31 @@ NSString * const CSWErrorDomain = @"com.cassowary";
     self = [super init];
     if (self) {
         _tableau = [[CSWTableau alloc] init];
+
         _stayMinusErrorVariables = [NSMutableArray array];
+        RETAIN(_stayMinusErrorVariables);
+
         _stayPlusErrorVariables = [NSMutableArray array];
+        RETAIN(_stayPlusErrorVariables);
   
         _markerVariablesByConstraints = [NSMapTable mapTableWithKeyOptions:NSMapTableStrongMemory
         valueOptions:NSMapTableStrongMemory];
+        RETAIN(_markerVariablesByConstraints);
+
         _constraintsByMarkerVariables = [NSMapTable mapTableWithKeyOptions:NSMapTableStrongMemory
                                                               valueOptions:NSMapTableStrongMemory];
+        RETAIN(_constraintsByMarkerVariables);
+
         _errorVariables = [NSMapTable mapTableWithKeyOptions:NSMapTableStrongMemory
         valueOptions:NSMapTableStrongMemory];
+        RETAIN(_errorVariables);
                 
         _artificialCounter = 0;
         
         _constraintConverter = [[CSWTableauConstraintConverter alloc] init];
         
         _addedConstraints = [NSMutableArray array];
+        RETAIN(_addedConstraints);
                 
         self.editVariableManager = [[CSWEditVariableManager alloc] init];
 
@@ -833,6 +843,21 @@ NSString * const CSWErrorDomain = @"com.cassowary";
     }
     
     return constraints;
+}
+
+-(void)dealloc
+{
+    RELEASE(_tableau);
+    RELEASE(_stayMinusErrorVariables);
+    RELEASE(_stayPlusErrorVariables);
+    RELEASE(_markerVariablesByConstraints);
+    RELEASE(_constraintsByMarkerVariables);
+    RELEASE(_errorVariables);
+    RELEASE(_constraintConverter);
+    RELEASE(_addedConstraints);
+    RELEASE(self.editVariableManager);
+    
+    [super dealloc];
 }
 
 @end
