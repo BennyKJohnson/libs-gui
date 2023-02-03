@@ -6,7 +6,10 @@
 -(instancetype)initWithName: (NSString*)name strength: (double)strength;
 {
     if (self = [super init]) {
-        self.name = name;
+        if (name != nil) {
+            self.name = name;
+            RETAIN(self.name);
+        }
         self.strength = strength;
     }
     return self;
@@ -65,6 +68,14 @@
     CSWStrength *copy = [[[self class] allocWithZone:zone] initWithName:self.name strength:self.strength];
     
     return copy;
+}
+
+- (void)dealloc
+{
+    if (_name != nil) {
+        RELEASE(_name);
+    }
+    [super dealloc];
 }
 
 @end
