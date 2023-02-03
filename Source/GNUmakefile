@@ -40,9 +40,6 @@ LIBRARY_NAME = libgnustep-gui
 libgnustep-gui_C_FILES =
 libgnustep-gui_OBJCFLAGS=-v
 
-libgnustep-gui_LIBRARIES_DEPEND_UPON += -lCassowaryKit
-ADDITIONAL_LIB_DIRS = -L/home/benjamin/CassowaryKit/cassowary/obj
-ADDITIONAL_INCLUDE_DIRS =  -I/home/benjamin/CassowaryKit/cassowary
 # The Objective-C source files to be compiled
 libgnustep-gui_OBJC_FILES = Functions.m \
 NSAccessibility.m \
@@ -357,7 +354,23 @@ GSXib5KeyedUnarchiver.m \
 GSHelpAttachment.m \
 GSAutoLayoutContainer.m \
 GSAutoLayoutVFLParser.m \
-GSAutoLayoutEngine.m
+GSAutoLayoutEngine.m \
+CSWConstraint.m \
+CSWConstraintFactory.m \
+CSWEditInfo.m \
+CSWEditVariableManager.m \
+CSWFloatComparator.m \
+CSWLinearExpression.m \
+CSWSimplexSolver.m \
+CSWStrength.m \
+CSWTierWeightedStrength.m \
+CSWSuggestion.m \
+CSWSymbolicWeight.m \
+CSWTableau.m \
+CSWTracableSimplexSolver.m \
+CSWVariable.m \
+CSWTableauConstraintConverter.m \
+CSWSimplexSolverSolution.m
 
 # Turn off NSMenuItem warning that NSMenuItem conforms to <NSObject>,
 # but does not implement <NSObject>'s methods itself (it inherits
