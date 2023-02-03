@@ -12,6 +12,7 @@
         _dummyCounter = 0;
         _variableCounter = 0;
         _constraintAuxiliaryVariables = [NSMapTable weakToStrongObjectsMapTable];
+        RETAIN(_constraintAuxiliaryVariables);
     }
     return self;
 }
@@ -186,4 +187,9 @@
     return ++_variableCounter;
 }
 
+-(void)dealloc
+{
+    RELEASE(_constraintAuxiliaryVariables);
+    [super dealloc];
+}
 @end
