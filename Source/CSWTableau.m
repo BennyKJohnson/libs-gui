@@ -9,15 +9,25 @@
     if (self = [super init]) {
         rows = [NSMapTable mapTableWithKeyOptions:NSMapTableStrongMemory
                                           valueOptions:NSMapTableStrongMemory];
+        RETAIN(rows);
+
         columns = [NSMapTable mapTableWithKeyOptions:NSMapTableStrongMemory
         valueOptions:NSMapTableStrongMemory];
+        RETAIN(columns);
+
         externalParametricVariables = [NSMutableSet set];
-                
+        RETAIN(externalParametricVariables);
+
         self.externalRows = [NSMapTable mapTableWithKeyOptions:NSMapTableStrongMemory
         valueOptions:NSMapTableStrongMemory];
+        RETAIN(self.externalRows);
+
         self.infeasibleRows = [NSMutableArray array];
+        RETAIN(self.infeasibleRows);
         
         self.objective = [CSWVariable objectiveVariableWithName:@"Z"];
+        RETAIN(self.objective);
+
         CSWLinearExpression *expression = [[CSWLinearExpression alloc] init];
         [self addRowForVariable:_objective equalsExpression: expression];
     }
@@ -449,6 +459,17 @@
     }
     
     return nil;
+}
+
+-(void)dealloc
+{
+    RELEASE(rows);
+    RELEASE(columns);
+    RELEASE(externalParametricVariables);
+    RELEASE(self.externalRows);
+    RELEASE(self.infeasibleRows);
+    RELEASE(self.objective);
+    [super dealloc];
 }
 
 @end
