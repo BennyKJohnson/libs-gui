@@ -5,6 +5,7 @@
 - (instancetype)init {
     if (self = [super init]) {
         self.type = CSWVaraibleTypeVariable;
+        _name = nil;
     }
     
     return self;
@@ -104,6 +105,15 @@
     }
     
     return [NSString stringWithFormat:@"[%@]", self.name];
+}
+
+-(void)dealloc
+{
+    if (_name != nil) {
+        RELEASE(_name);
+        _name = nil;
+    }
+    [super dealloc];
 }
 
 @end
