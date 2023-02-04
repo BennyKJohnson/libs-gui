@@ -232,5 +232,13 @@
      }
 }
 
+-(void)dealloc
+{
+    RELEASE(_terms);
+    RELEASE(_termVariables);
+    
+    [super dealloc];
+}
+
 @end
 

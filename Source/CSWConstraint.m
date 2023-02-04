@@ -132,4 +132,13 @@
     return self.type == CSWConstraintTypeLinearInequity;
 }
 
+-(void)dealloc
+{
+    RELEASE(_strength);
+    RELEASE(_expression);
+    RELEASE(_variable);
+
+    [super dealloc];
+}
+
 @end
