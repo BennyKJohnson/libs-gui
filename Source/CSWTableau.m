@@ -469,6 +469,7 @@
     RELEASE(self.externalRows);
     RELEASE(self.infeasibleRows);
     RELEASE(self.objective);
+    
     [super dealloc];
 }
 

@@ -12,4 +12,10 @@
     return self;
 }
 
+-(void)dealloc
+{
+    RELEASE(_variable);
+    [super dealloc];
+}
+
 @end

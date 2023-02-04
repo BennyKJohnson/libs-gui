@@ -16,4 +16,14 @@
     return self;
 }
 
+-(void)dealloc
+{
+    RELEASE(_variable);
+    RELEASE(_plusVariable);
+    RELEASE(_minusVariable);
+    RELEASE(_constraint);
+    
+    [super dealloc];
+}
+
 @end

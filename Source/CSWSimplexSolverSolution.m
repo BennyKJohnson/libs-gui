@@ -12,6 +12,7 @@
     self = [super init];
     if (self) {
         resultsByVariable = [NSMapTable strongToStrongObjectsMapTable];
+        RETAIN(resultsByVariable);
     }
     return self;
 }
@@ -60,6 +61,12 @@
     BOOL hasResultForBoth = lhsResult != nil && rhsResult != nil;
     BOOL hasTheSameResultForBoth = [CSWFloatComparator isApproxiatelyEqual:[lhsResult floatValue] b:[rhsResult floatValue]];
     return hasResultForBoth && hasTheSameResultForBoth;
+}
+
+-(void)dealloc
+{
+    RETAIN(resultsByVariable);
+    [super dealloc];
 }
 
 @end

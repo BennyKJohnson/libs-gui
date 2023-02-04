@@ -98,4 +98,13 @@
     return editableInfosInDescendingOrder;
 }
 
+-(void)dealloc
+{
+    RELEASE(_editVariablesList);
+    RELEASE(_editVariablesStack);
+    RELEASE(_editVariablesMap);
+
+    [super dealloc];
+}
+
 @end
