@@ -363,9 +363,7 @@ CSWFloatComparator.m \
 CSWLinearExpression.m \
 CSWSimplexSolver.m \
 CSWStrength.m \
-CSWTierWeightedStrength.m \
 CSWSuggestion.m \
-CSWSymbolicWeight.m \
 CSWTableau.m \
 CSWTracableSimplexSolver.m \
 CSWVariable.m \
