@@ -21,8 +21,8 @@
 */
 
 #import <Foundation/Foundation.h>
-#import "GSCSConstraint.h"
-#import "GSCSSolution.h"
+#import "AutoLayout/GSCSConstraint.h"
+#import "AutoLayout/GSCSSolution.h"
 
 #ifndef _GS_CASSOWARY_SOLVER_H
 #define _GS_CASSOWARY_SOLVER_H
