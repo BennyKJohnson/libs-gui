@@ -360,15 +360,15 @@ GSHelpAttachment.m \
 GSAutoLayoutEngine.m \
 GSAutoLayoutVFLParser.m \
 GSCassowarySolver.m \
-GSCSConstraint.m \
-GSCSVariable.m \
-GSCSSolution.m \
-GSCSFloatComparator.m \
-GSCSLinearExpression.m \
-GSCSStrength.m \
-GSCSEditInfo.m \
-GSCSEditVariableManager.m \
-GSCSTableau.m
+AutoLayout/GSCSConstraint.m \
+AutoLayout/GSCSVariable.m \
+AutoLayout/GSCSSolution.m \
+AutoLayout/GSCSFloatComparator.m \
+AutoLayout/GSCSLinearExpression.m \
+AutoLayout/GSCSStrength.m \
+AutoLayout/GSCSEditInfo.m \
+AutoLayout/GSCSEditVariableManager.m \
+AutoLayout/GSCSTableau.m
 
 # Turn off NSMenuItem warning that NSMenuItem conforms to <NSObject>,
 # but does not implement <NSObject>'s methods itself (it inherits
@@ -687,16 +687,16 @@ GSHelpAttachment.h \
 GSAutoLayoutVFLParser.h \
 GSAutoLayoutEngine.h \
 GSCassowarySolver.h \
-GSCSConstraint.h \
-GSCSVariable.h \
-GSCSFloatComparator.h \
-GSCSSolution.h \
-GSCSLinearExpression.h \
-GSCSConstraintOperator.h \
-GSCSStrength.h \
-GSCSEditVariableManager.h \
-GSCSEditInfo.h \
-GSCSTableau.h
+AutoLayout/GSCSConstraint.h \
+AutoLayout/GSCSVariable.h \
+AutoLayout/GSCSFloatComparator.h \
+AutoLayout/GSCSSolution.h \
+AutoLayout/GSCSLinearExpression.h \
+AutoLayout/GSCSConstraintOperator.h \
+AutoLayout/GSCSStrength.h \
+AutoLayout/GSCSEditVariableManager.h \
+AutoLayout/GSCSEditInfo.h \
+AutoLayout/GSCSTableau.h
 
 libgnustep-gui_HEADER_FILES = ${GUI_HEADERS}
 

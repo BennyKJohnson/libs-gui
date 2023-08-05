@@ -22,7 +22,7 @@
 
 #import "GSAutoLayoutEngine.h"
 #import "AppKit/NSLayoutConstraint.h"
-#import "GSCSConstraint.h"
+#import "AutoLayout/GSCSConstraint.h"
 #import "GSFastEnumeration.h"
 #import "NSViewPrivate.h"
 
