@@ -87,6 +87,11 @@
   return AUTORELEASE(variable);
 }
 
+- (void) setId: (NSUInteger)id
+{
+  _id = id;
+}
+
 - (BOOL) isDummy
 {
   return _type == GSCSVariableTypeDummy;

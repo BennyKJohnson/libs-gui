@@ -368,7 +368,10 @@ GSCSLinearExpression.m \
 GSCSStrength.m \
 GSCSEditInfo.m \
 GSCSEditVariableManager.m \
-GSCSTableau.m
+GSCSTableau.m \
+GSCSSuggestion.m \
+GSCSSimplexSolver.m \
+GSCSTableauConstraintConverter.m \
 
 # Turn off NSMenuItem warning that NSMenuItem conforms to <NSObject>,
 # but does not implement <NSObject>'s methods itself (it inherits
@@ -696,7 +699,11 @@ GSCSConstraintOperator.h \
 GSCSStrength.h \
 GSCSEditVariableManager.h \
 GSCSEditInfo.h \
-GSCSTableau.h
+GSCSTableau.h \
+GSCSSuggestion.h \
+GSCSSimplexSolver.h \
+GSCSTableauConstraintConverter.h \
+GSCSVariable+PrivateMethods.h
 
 libgnustep-gui_HEADER_FILES = ${GUI_HEADERS}
 

@@ -690,7 +690,7 @@ PACKAGE_SCOPE
 #if GS_HAS_DECLARED_PROPERTIES
 @property (readonly) NSSize intrinsicContentSize;
 #else
-- (BOOL) intrinsicContentSize;
+- (NSSize) intrinsicContentSize;
 #endif
 
 #if GS_HAS_DECLARED_PROPERTIES

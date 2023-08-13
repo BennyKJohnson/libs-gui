@@ -48,6 +48,25 @@
 - (GSCSVariable *) variable;
 #endif
 
+#if GS_HAS_DECLARED_PROPERTIES
+@property (nonatomic, readonly) GSCSVariable *plusVariable;
+#else
+- (GSCSVariable *) plusVariable;
+#endif
+
+#if GS_HAS_DECLARED_PROPERTIES
+@property (nonatomic, readonly) GSCSVariable *minusVariable;
+#else
+- (GSCSVariable *) minusVariable;
+#endif
+
+#if GS_HAS_DECLARED_PROPERTIES
+@property (nonatomic) NSInteger previousConstant;
+#else
+- (NSInteger) previousConstant;
+- (void) setPreviousConstant: (NSInteger)previousConstant;
+#endif
+
 - (instancetype) initWithVariable: (GSCSVariable *)variable
                        constraint: (GSCSConstraint *)constraint
                      plusVariable: (GSCSVariable *)plusVariable

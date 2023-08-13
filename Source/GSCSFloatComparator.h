@@ -25,6 +25,8 @@
 #ifndef _GS_CS_FLOAT_COMPARATOR_H
 #define _GS_CS_FLOAT_COMPARATOR_H
 
+extern const float GSCSEpsilon;
+
 @interface GSCSFloatComparator : NSObject
 
 + (BOOL) isApproxiatelyEqual: (CGFloat)a b: (CGFloat)b;

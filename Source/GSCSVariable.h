@@ -45,7 +45,12 @@ typedef enum GSCSVariableType GSCSVariableType;
 
 - (GSCSVariableType) type;
 
+#if GS_HAS_DECLARED_PROPERTIES
+@property NSUInteger id;
+#else
 - (NSUInteger) id;
+- (void) setId: (NSUInteger)id;
+#endif
 
 - (CGFloat) value;
 

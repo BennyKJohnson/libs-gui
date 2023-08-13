@@ -53,6 +53,26 @@
   return _variable;
 }
 
+- (GSCSVariable*) plusVariable
+{
+  return _plusVariable;
+}
+
+- (GSCSVariable*) minusVariable
+{
+  return _minusVariable;
+}
+
+- (NSInteger) previousConstant
+{
+  return _previousConstant;
+}
+
+- (void) setPreviousConstant: (NSInteger)previousConstant
+{
+  _previousConstant = previousConstant;
+}
+
 - (void) dealloc
 {
   RELEASE(_variable);
